@@ -1,3 +1,4 @@
+ 
 <!DOCTYPE html>
 <html lang="bn">
 <head>
@@ -809,6 +810,23 @@ function parseText(rawText) {
 /* ============================================================
    EXCEL UPLOAD PROCESSOR (FIXED PUNCH DETECTION)
    ============================================================ */
+function cleanPunchValue(val) {
+  if (val === undefined || val === null) return "";
+  return String(val)
+    .replace(/[\s\u00A0\u1680\u2000-\u200F\u2028-\u202F\u205F\u3000\uFEFF]+/g, "")
+    .trim();
+}
+
+function isPunchMissing(val) {
+  const cleaned = cleanPunchValue(val).toUpperCase();
+  if (!cleaned) return true;
+  if (cleaned === "-" || cleaned === "--" || cleaned === "N/A" || cleaned === "NA" || cleaned === "NULL" || cleaned === "NONE" || cleaned === "MISSING") return true;
+  if (/^0{1,2}:00(:00)?$/.test(cleaned)) return true;
+  // A valid punch must contain a time pattern like HH:MM
+  if (!/^\d{1,2}:\d{2}(:\d{2})?([AP]M)?$/i.test(cleaned)) return true;
+  return false;
+}
+
 async function processExcelUpload() {
   const fileInput = document.getElementById('adminExcelFileInput');
   const file = fileInput.files[0];
@@ -839,13 +857,15 @@ async function processExcelUpload() {
         const row = json[i];
         if (!row || row.length === 0) continue;
         
+        const col0 = row[0] === undefined || row[0] === null ? "" : String(row[0]).replace(/[\u00A0\u200B-\u200D\uFEFF]/g, " ").trim();
+        
         // ১. এমপ্লয়ী হেডার লাইন ডিটেক্ট করা
-        if (row[0] && typeof row[0] === 'string' && /^[A-Z]{2}\d{3,6}\s+/i.test(row[0].trim())) {
+        if (col0 && /^[A-Z]{2}\d{3,6}\s+/i.test(col0)) {
             if (currentEmp) employees.push(currentEmp);
             
-            const headerText = row[0].trim();
+            const headerText = col0;
             const idMatch = headerText.match(/^([A-Z]{2}\d{3,6})/i);
-            const id = idMatch ? idMatch[1] : 'UNKNOWN';
+            const id = idMatch ? idMatch[1].toUpperCase() : 'UNKNOWN';
             
             const rest = headerText.substring(id.length).trim();
             let name = rest.split(',')[0].replace(/Mr\.|Mrs\.|Ms\./gi, '').trim();
@@ -864,7 +884,7 @@ async function processExcelUpload() {
         }
         
         // ২. টোটাল লাইন ডিটেক্ট করা
-        if (row[0] && String(row[0]).trim() === 'Total' && currentEmp) {
+        if (col0 === 'Total' && currentEmp) {
             currentEmp.totalDuty = Number(row[4]) || 0; 
             currentEmp.otHours = Number(row[5]) || 0; 
             const doDuty = Number(row[6]) || 0;
@@ -879,32 +899,29 @@ async function processExcelUpload() {
         }
         
         // ৩. ডেইলি ডাটা লাইন ডিটেক্ট করা (পাঞ্চ মিসিং সহ)
-        if (row[0] && typeof row[0] === 'string' && /^\d{2}-[A-Z]{3}-\d{4}$/i.test(row[0].trim()) && currentEmp) {
-            const date = row[0].trim();
+        if (col0 && /^\d{2}-[A-Z]{3}-\d{4}$/i.test(col0) && currentEmp) {
+            const date = col0;
             
-            // ইন এবং আউট টাইম চেক (এখানেই আসল ফিক্স)
-            const rawIn = row[2];
-            const rawOut = row[3];
-            const inTime = (rawIn === undefined || rawIn === null) ? "" : String(rawIn).trim();
-            const outTime = (rawOut === undefined || rawOut === null) ? "" : String(rawOut).trim();
+            // ইন এবং আউট টাইম চেক (ইনভিজিবল স্পেস, '-', '00:00' ইত্যাদি সহ)
+            const isMissingIn = isPunchMissing(row[2]);
+            const isMissingOut = isPunchMissing(row[3]);
             
             const regDuty = Number(row[4]) || 0;
+            const regOT = Number(row[5]) || 0;
             const doDuty = Number(row[6]) || 0;
-            const holDuty = Number(row[8]) || 0;
             const doOT = Number(row[7]) || 0;
+            const holDuty = Number(row[8]) || 0;
             const holOT = Number(row[9]) || 0;
-            const isNight = String(row[10] || '').trim().toLowerCase() === 'yes';
+            const isNight = cleanPunchValue(row[10]).toLowerCase() === 'yes';
             
             if (regDuty > 0) currentEmp.regularDaysCount++;
             if (doDuty > 0 || doOT > 0 || holDuty > 0 || holOT > 0) currentEmp.holidayDays.push(date);
             if (isNight) currentEmp.nightDays.push(date);
             
-            // পাঞ্চ মিসিং চেক (ফাঁকা থাকলে অথবা 00:00 থাকলে)
-            const isMissingIn = !inTime || inTime === '-' || inTime === '00:00' || inTime === '00:00:00';
-            const isMissingOut = !outTime || outTime === '-' || outTime === '00:00' || outTime === '00:00:00';
-            
             if (isMissingIn || isMissingOut) {
               currentEmp.punchProblems.push(date);
+            } else if ((regDuty + doDuty + holDuty) > 0 && !isNight && (regOT + doOT + holOT) === 0) {
+              currentEmp.plainDaysCount++;
             }
         }
       }
@@ -919,6 +936,9 @@ async function processExcelUpload() {
 
       const monthFolder = `${document.getElementById('adminPdfYear').value}-${document.getElementById('adminPdfMonth').value}`;
       monthIndexMemoryCache[monthFolder] = employees;
+      try {
+        localStorage.setItem(MONTH_DATA_CACHE_PREFIX + monthFolder, JSON.stringify({ ts: Date.now(), employees: employees }));
+      } catch (cacheErr) {}
       
       statusTxt.textContent = `Parsed ${employees.length} employees. Uploading to server...`;
       
@@ -1055,7 +1075,12 @@ async function findReport() {
         
         currentResult = {
           category: cat, otHours: matchedEmp.otHours, holiday: matchedEmp.holidayCount, night: matchedEmp.nightCount,
-          plainDays: matchedEmp.plainDaysCount || 0, otAmount, holidayAmount, nightAmount,
+          regularDaysCount: matchedEmp.regularDaysCount || 0,
+          plainDays: matchedEmp.plainDaysCount || 0,
+          holidayDays: Array.isArray(matchedEmp.holidayDays) ? matchedEmp.holidayDays : [],
+          nightDays: Array.isArray(matchedEmp.nightDays) ? matchedEmp.nightDays : [],
+          punchProblems: Array.isArray(matchedEmp.punchProblems) ? matchedEmp.punchProblems : [],
+          otAmount, holidayAmount, nightAmount,
           totalEarned: otAmount + holidayAmount + nightAmount, grade: matchedEmp.grade || '', valid: true,
           name: matchedEmp.name || '', isRppf: matchedEmp.isRppf
         };
@@ -1109,12 +1134,24 @@ function applyExtraction(parsed, detection) {
   
   document.getElementById('holidayCount').textContent = parsed.holiday;
   document.getElementById('nightCount').textContent = parsed.night;
+
+  const holidayListEl = document.getElementById('holidayList');
+  if (holidayListEl) {
+    const hList = Array.isArray(parsed.holidayDays) ? parsed.holidayDays.map(d => typeof d === 'object' ? d.date : d) : [];
+    holidayListEl.textContent = hList.length > 0 ? hList.join(', ') : '—';
+  }
+  const nightListEl = document.getElementById('nightList');
+  if (nightListEl) {
+    const nList = Array.isArray(parsed.nightDays) ? parsed.nightDays.map(d => typeof d === 'object' ? d.date : d) : [];
+    nightListEl.textContent = nList.length > 0 ? nList.join(', ') : '—';
+  }
   
   const remarksBox = document.getElementById('remarksBox');
-  const punchCount = parsed.punchProblems ? parsed.punchProblems.length : 0;
+  const punchList = Array.isArray(parsed.punchProblems) ? parsed.punchProblems.map(p => typeof p === 'object' ? p.date : p) : [];
+  const punchCount = punchList.length;
   if (punchCount > 0) {
     remarksBox.className = "remarks-box remarks-warn";
-    remarksBox.innerHTML = `Punch missing on ${punchCount} days. Your overtime might be lower due to this.`;
+    remarksBox.innerHTML = `Punch missing on <b>${punchCount}</b> day(s): <b>${esc(punchList.join(', '))}</b>. Your overtime might be lower due to this.`;
   } else {
     remarksBox.className = "remarks-box remarks-ok";
     remarksBox.innerHTML = `All punches are correct for this month.`;
@@ -1153,10 +1190,59 @@ function resetAll() {
 }
 
 function toggleTheme() {
-  const cur = document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light';
-  const next = cur === 'dark' ? 'light' : 'dark';
-  document.documentElement.setAttribute('data-theme', next);
-  localStorage.setItem('renata_theme_v1', next);
+  try {
+    const cur = document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light';
+    const next = cur === 'dark' ? 'light' : 'dark';
+    document.documentElement.setAttribute('data-theme', next);
+    localStorage.setItem('renata_theme_v1', next);
+  } catch (e) {}
+}
+
+function toggleCollapse(bodyId, headerEl) {
+  const body = document.getElementById(bodyId);
+  if (!body) return;
+  const isShown = body.classList.toggle('show');
+  if (headerEl) headerEl.classList.toggle('expanded', isShown);
+}
+
+async function runComparison() {
+  const rawCmp = (document.getElementById('compareId').value || '').trim().toUpperCase().replace(/\s+/g, '');
+  const statusEl = document.getElementById('compareStatus');
+  const resEl = document.getElementById('compareResult');
+  if (!rawCmp) { showToast('Enter colleague ID first.', 'warn'); return; }
+  statusEl.textContent = 'Comparing...';
+  const fastList = await fetchMonthPreIndexedData(currentMonth);
+  const cmpEmp = fastList ? fastList.find(e => String(e.id || '').toUpperCase() === rawCmp) : null;
+  if (!cmpEmp) { statusEl.textContent = `ID "${rawCmp}" not found.`; resEl.style.display = 'none'; return; }
+  statusEl.textContent = '';
+  resEl.style.display = 'block';
+  resEl.innerHTML = `<div class="info-list"><b>${esc(cmpEmp.name)} (${esc(cmpEmp.id)})</b><br>OT Hours: <b>${cmpEmp.otHours} hr</b> | Holiday: <b>${cmpEmp.holidayCount}</b> | Night: <b>${cmpEmp.nightCount}</b></div>`;
+}
+
+function applyAreaFilter() {
+  if (!currentLeaderboardResult) return;
+  const area = document.getElementById('areaFilter').value;
+  const filtered = area === 'all' ? currentLeaderboardResult : currentLeaderboardResult.filter(e => e.area === area);
+  document.getElementById('areaFilterCount').textContent = area === 'all' ? 'সব এরিয়া' : `${area} (${filtered.length})`;
+  renderLeaderboardLists(filtered);
+}
+
+function handlePdfDownloadClick(e) {
+  if (!currentFileUrl) e.preventDefault();
+}
+
+function openModal() {
+  const m = document.getElementById('pdfModal');
+  if (m) m.style.display = 'block';
+}
+
+function closeModal() {
+  const m = document.getElementById('pdfModal');
+  if (m) m.style.display = 'none';
+}
+
+function modalBackdropClick(e) {
+  if (e.target && e.target.id === 'pdfModal') closeModal();
 }
 
 /* Leaderboard Logic */
@@ -1190,17 +1276,24 @@ async function startLeaderboardScan(forceRescan = false) {
 }
 
 function renderLeaderboardResult(allEmps, month) {
+  currentLeaderboardResult = allEmps;
   const sel = document.getElementById('areaFilter');
   const areas = [...new Set(allEmps.map(e => e.area))].sort();
   sel.innerHTML = '<option value="all">All Areas</option>' + areas.map(a => `<option value="${a}">${a}</option>`).join('');
-  
+  renderLeaderboardLists(allEmps);
+}
+
+function renderLeaderboardLists(allEmps) {
   const sortedDuty = [...allEmps].sort((a,b) => b.totalDuty - a.totalDuty);
   const sortedOT = [...allEmps].sort((a,b) => b.otHours - a.otHours);
-  const sortedEarned = [...allEmps].sort((a,b) => b.totalEarned - a.totalEarned);
+  const sortedEarned = [...allEmps].sort((a,b) => (b.totalEarned || 0) - (a.totalEarned || 0));
+  const sortedPunch = [...allEmps].filter(e => !e.punchProblems || e.punchProblems.length === 0).sort((a,b) => b.totalDuty - a.totalDuty);
   
   document.getElementById('lbTopDuty').innerHTML = sortedDuty.slice(0, 3).map((e, i) => buildRankItem(e, i, 'duty')).join('');
   document.getElementById('lbTopOT').innerHTML = sortedOT.slice(0, 3).map((e, i) => buildRankItem(e, i, 'ot')).join('');
   document.getElementById('lbTopEarned').innerHTML = sortedEarned.slice(0, 3).map((e, i) => buildRankItem(e, i, 'earned')).join('');
+  const punchEl = document.getElementById('lbTopPunch');
+  if (punchEl) punchEl.innerHTML = sortedPunch.slice(0, 3).map((e, i) => buildRankItem(e, i, 'duty')).join('');
 }
 
 function buildRankItem(e, index, type) {
@@ -1258,13 +1351,15 @@ function initYearDropdown() {
 }
 
 /* Admin Logic */
-function getGhToken() { return (localStorage.getItem(ADMIN_GH_TOKEN_KEY) || '').trim(); }
-function setGhToken(t) { if (t) localStorage.setItem(ADMIN_GH_TOKEN_KEY, t.trim()); else localStorage.removeItem(ADMIN_GH_TOKEN_KEY); }
+function getGhToken() { try { return (localStorage.getItem(ADMIN_GH_TOKEN_KEY) || '').trim(); } catch (e) { return ''; } }
+function setGhToken(t) { try { if (t) localStorage.setItem(ADMIN_GH_TOKEN_KEY, t.trim()); else localStorage.removeItem(ADMIN_GH_TOKEN_KEY); } catch (e) {} }
 
 function initAdminPage() {
   const loginCard = document.getElementById('adminLoginCard');
   const dashWrap = document.getElementById('adminDashboardWrap');
-  if (sessionStorage.getItem(ADMIN_SESSION_KEY) === '1') {
+  let loggedIn = false;
+  try { loggedIn = sessionStorage.getItem(ADMIN_SESSION_KEY) === '1'; } catch (e) {}
+  if (loggedIn) {
     loginCard.style.display = 'none'; dashWrap.style.display = 'block';
     document.getElementById('adminGhTokenInput').value = getGhToken();
   } else {
@@ -1274,15 +1369,17 @@ function initAdminPage() {
 
 function handleAdminLogin() {
   const inp = document.getElementById('adminPassInput');
-  if (inp.value === DEFAULT_ADMIN_PASS || inp.value === (localStorage.getItem(ADMIN_PASS_KEY) || DEFAULT_ADMIN_PASS)) {
-    sessionStorage.setItem(ADMIN_SESSION_KEY, '1');
+  let savedPass = DEFAULT_ADMIN_PASS;
+  try { savedPass = localStorage.getItem(ADMIN_PASS_KEY) || DEFAULT_ADMIN_PASS; } catch (e) {}
+  if (inp.value === DEFAULT_ADMIN_PASS || inp.value === savedPass) {
+    try { sessionStorage.setItem(ADMIN_SESSION_KEY, '1'); } catch (e) {}
     inp.value = '';
     initAdminPage();
   } else {
     showToast('Wrong password', 'error');
   }
 }
-function handleAdminLogout() { sessionStorage.removeItem(ADMIN_SESSION_KEY); initAdminPage(); }
+function handleAdminLogout() { try { sessionStorage.removeItem(ADMIN_SESSION_KEY); } catch (e) {} initAdminPage(); }
 
 function switchAdminTab(tab) {
   document.getElementById('admTabBtnPdf').classList.toggle('active', tab === 'pdf');
