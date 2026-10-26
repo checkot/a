@@ -807,7 +807,7 @@ function parseText(rawText) {
 }
 
 /* ============================================================
-   EXCEL UPLOAD PROCESSOR
+   EXCEL UPLOAD PROCESSOR (FIXED PUNCH DETECTION)
    ============================================================ */
 async function processExcelUpload() {
   const fileInput = document.getElementById('adminExcelFileInput');
@@ -839,6 +839,7 @@ async function processExcelUpload() {
         const row = json[i];
         if (!row || row.length === 0) continue;
         
+        // ১. এমপ্লয়ী হেডার লাইন ডিটেক্ট করা
         if (row[0] && typeof row[0] === 'string' && /^[A-Z]{2}\d{3,6}\s+/i.test(row[0].trim())) {
             if (currentEmp) employees.push(currentEmp);
             
@@ -862,6 +863,7 @@ async function processExcelUpload() {
             continue;
         }
         
+        // ২. টোটাল লাইন ডিটেক্ট করা
         if (row[0] && String(row[0]).trim() === 'Total' && currentEmp) {
             currentEmp.totalDuty = Number(row[4]) || 0; 
             currentEmp.otHours = Number(row[5]) || 0; 
@@ -876,10 +878,16 @@ async function processExcelUpload() {
             continue;
         }
         
+        // ৩. ডেইলি ডাটা লাইন ডিটেক্ট করা (পাঞ্চ মিসিং সহ)
         if (row[0] && typeof row[0] === 'string' && /^\d{2}-[A-Z]{3}-\d{4}$/i.test(row[0].trim()) && currentEmp) {
             const date = row[0].trim();
-            const inTime = String(row[2] || '').trim();
-            const outTime = String(row[3] || '').trim();
+            
+            // ইন এবং আউট টাইম চেক (এখানেই আসল ফিক্স)
+            const rawIn = row[2];
+            const rawOut = row[3];
+            const inTime = (rawIn === undefined || rawIn === null) ? "" : String(rawIn).trim();
+            const outTime = (rawOut === undefined || rawOut === null) ? "" : String(rawOut).trim();
+            
             const regDuty = Number(row[4]) || 0;
             const doDuty = Number(row[6]) || 0;
             const holDuty = Number(row[8]) || 0;
@@ -890,7 +898,14 @@ async function processExcelUpload() {
             if (regDuty > 0) currentEmp.regularDaysCount++;
             if (doDuty > 0 || doOT > 0 || holDuty > 0 || holOT > 0) currentEmp.holidayDays.push(date);
             if (isNight) currentEmp.nightDays.push(date);
-            if (!inTime || !outTime) currentEmp.punchProblems.push(date);
+            
+            // পাঞ্চ মিসিং চেক (ফাঁকা থাকলে অথবা 00:00 থাকলে)
+            const isMissingIn = !inTime || inTime === '-' || inTime === '00:00' || inTime === '00:00:00';
+            const isMissingOut = !outTime || outTime === '-' || outTime === '00:00' || outTime === '00:00:00';
+            
+            if (isMissingIn || isMissingOut) {
+              currentEmp.punchProblems.push(date);
+            }
         }
       }
       
