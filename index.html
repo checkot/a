@@ -1,0 +1,1332 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RENATA PLC - Overtime Report</title>
+<link rel="manifest" href="https://checkot.github.io/manifest.json">
+<meta name="theme-color" content="#0F172A">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="icon" type="image/png" href="https://checkot.github.io/icon.png">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@400;600;700&display=swap" rel="stylesheet">
+
+<!-- Core Libraries -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5.0.4/dist/tesseract.min.js"></script>
+<!-- Excel Library (SheetJS) -->
+<script src="https://cdn.sheetjs.com/xlsx-0.20.0/package/dist/xlsx.full.min.js"></script>
+
+<script>
+(function () {
+  try {
+    var p = localStorage.getItem('renata_theme_v1') || 'auto';
+    var t = (p === 'light' || p === 'dark') ? p : (window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+    document.documentElement.setAttribute('data-theme', t);
+  } catch (e) {}
+})();
+</script>
+<style>
+:root {
+  color-scheme: light;
+  --bg: #F3F6FB; --surface: #FFFFFF; --surface-2: #EDF2F9;
+  --text: #0B1B33; --text-2: #33445F; --muted: #566783;
+  --border: #DCE4F0; --border-strong: #C3CFE2;
+  --brand: #2563EB; --brand-strong: #1D4ED8; --brand-text: #1D4ED8;
+  --on-brand: #FFFFFF; --brand-soft: #E8F0FF; --brand-soft-border: #BFD3FB;
+  --success: #15803D; --success-bg: #ECFDF3; --success-border: #A7E3BF;
+  --warning: #B45309; --warning-bg: #FFF7E6; --warning-border: #F5D58B;
+  --danger: #C62828; --danger-bg: #FEF0F0; --danger-border: #F5B8B8;
+  --shadow-sm: 0 1px 2px rgba(11, 27, 51, .05);
+  --shadow: 0 2px 6px rgba(11, 27, 51, .06), 0 1px 2px rgba(11, 27, 51, .04);
+  --shadow-lg: 0 14px 34px rgba(11, 27, 51, .14);
+  --overlay: rgba(11, 27, 51, .58);
+  --radius-sm: 8px; --radius: 12px; --radius-lg: 16px; --nav-h: 64px;
+  --primary-blue: var(--brand); --primary-blue-hover: var(--brand-strong);
+  --tap: 40px; --r-btn: 10px;
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #0A1220; --surface: #111C2F; --surface-2: #182640;
+  --text: #E8EEF8; --text-2: #B9C6DB; --muted: #8EA0BC;
+  --border: #223452; --border-strong: #31466B;
+  --brand: #3B76F0; --brand-strong: #5A8DF5; --brand-text: #8DB3FF;
+  --brand-soft: rgba(91, 141, 245, .15); --brand-soft-border: rgba(91, 141, 245, .38);
+  --success: #4ADE80; --success-bg: rgba(74, 222, 128, .10); --success-border: rgba(74, 222, 128, .32);
+  --warning: #FBBF24; --warning-bg: rgba(251, 191, 36, .10); --warning-border: rgba(251, 191, 36, .32);
+  --danger: #FF8A8A; --danger-bg: rgba(255, 99, 99, .10); --danger-border: rgba(255, 99, 99, .32);
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, .4);
+  --shadow: 0 2px 6px rgba(0, 0, 0, .45);
+  --overlay: rgba(2, 6, 14, .75);
+}
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html, body { margin: 0; padding: 0; }
+body {
+  font-family: 'Hind Siliguri', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background: var(--bg); color: var(--text); min-height: 100vh;
+  padding: 12px 12px calc(var(--nav-h) + 28px + env(safe-area-inset-bottom)) 12px;
+}
+:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
+label { font-weight: 600; display: block; margin-top: 14px; color: var(--text-2); font-size: 13.5px; }
+label:first-child { margin-top: 0; }
+input, select {
+  width: 100%; padding: 9px 12px; margin-top: 6px;
+  border: 1px solid var(--border-strong); border-radius: var(--radius-sm);
+  font-size: 15px; min-height: var(--tap); font-family: inherit; outline: none;
+  background: var(--surface); color: var(--text); transition: border-color .15s;
+}
+input:focus, select:focus { border-color: var(--brand); box-shadow: 0 0 0 3px var(--brand-soft); }
+button {
+  width: 100%; background: var(--brand); color: #fff; border: none; padding: 8px 14px; 
+  border-radius: var(--r-btn); font-size: 14px; font-weight: 700; font-family: inherit; 
+  cursor: pointer; min-height: var(--tap); display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  transition: background .15s, transform .06s;
+}
+button:hover { background: var(--brand-strong); }
+button:active { transform: scale(.985); }
+button:disabled { opacity: .55; cursor: not-allowed; }
+#searchBtn { margin-top: 12px; box-shadow: 0 2px 8px rgba(37, 99, 235, .20); }
+
+.welcome-slider { display: none; }
+.quick-actions-grid { display: none; }
+
+.page { display: none; max-width: 560px; margin: 0 auto; }
+.page.active { display: block; animation: pageIn .22s ease; }
+@keyframes pageIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+.card, .collapse-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); box-shadow: var(--shadow); margin: 0 0 12px 0; padding: 16px; }
+.collapse-card { padding: 0; overflow: hidden; }
+.app-header { display: flex; align-items: center; gap: 10px; margin: 2px 0 14px 0; }
+.app-header .logo { width: 34px; height: 34px; border-radius: 9px; flex-shrink: 0; object-fit: cover; background: var(--brand-soft); }
+.header { flex: 1; min-width: 0; }
+.header h2 { margin: 0; font-size: 18px; font-weight: 800; }
+.header p { margin: 1px 0 0 0; font-size: 12px; color: var(--muted); font-weight: 500; }
+.icon-btn { width: 40px; min-width: 40px; height: 40px; padding: 0; background: var(--surface); color: var(--text-2); border: 1px solid var(--border); border-radius: 10px; flex-shrink: 0; }
+.icon-btn:hover { background: var(--surface-2); color: var(--text); }
+.icon-btn svg { width: 18px; height: 18px; stroke: currentColor; fill: none; stroke-width: 2; }
+
+.spinner { display: none; width: 20px; height: 20px; border: 2.5px solid var(--border); border-top-color: var(--brand); border-radius: 50%; animation: spin .7s linear infinite; margin: 12px auto 0 auto; }
+@keyframes spin { to { transform: rotate(360deg); } }
+#status { margin-top: 10px; text-align: center; font-weight: 600; font-size: 13.5px; color: var(--text-2); }
+#progress { margin-top: 4px; text-align: center; font-size: 12px; color: var(--muted); display: none; }
+
+.search-summary { display: none; align-items: center; gap: 12px; cursor: pointer; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 10px 14px; margin: 0 0 12px 0; box-shadow: var(--shadow); min-height: 48px; }
+.search-summary.show { display: flex; }
+.search-summary .id-badge { background: var(--brand); color: #fff; padding: 5px 10px; border-radius: 7px; font-size: 13.5px; font-weight: 800; }
+.search-summary .month-info { flex: 1; font-size: 13.5px; color: var(--text-2); font-weight: 600; }
+.search-summary .edit-icon { color: var(--brand-text); font-size: 12.5px; font-weight: 700; }
+
+.btn-group { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 12px; }
+.btn-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 12px; }
+.btn-action { background: var(--brand) !important; color: #fff !important; display: none; align-items: center; justify-content: center; text-decoration: none; min-height: var(--tap); padding: 0 12px; border-radius: var(--r-btn); font-weight: 700; font-size: 14px; border: none !important; }
+.btn-action:hover { background: var(--brand-strong) !important; }
+
+.calc-card { display: none !important; }
+.calc-card.show { display: block !important; }
+.badge { background: var(--brand-soft); color: var(--brand-text); padding: 3px 10px; border-radius: 999px; font-size: 12px; font-weight: 700; border: 1px solid var(--brand-soft-border); }
+.badge.warn { background: var(--danger-bg); color: var(--danger); border-color: var(--danger-border); }
+.badge.facility-warn { background: var(--warning-bg); color: var(--warning); border-color: var(--warning-border); }
+.grade-info { font-size: 12.5px; color: var(--text-2); margin-bottom: 12px; padding: 9px 12px; background: var(--surface-2); border-radius: var(--radius-sm); border: 1px solid var(--border); font-weight: 500; }
+
+.greeting-banner { background: var(--success-bg); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 10px 14px; margin-bottom: 10px; display: none; }
+.greeting-banner .greet-text { font-size: 14.5px; font-weight: 800; color: var(--success); margin-bottom: 2px; }
+.greeting-banner .greet-sub { font-size: 12.5px; color: var(--text-2); font-weight: 600; }
+
+.grand-total-block { background: linear-gradient(135deg, var(--brand) 0%, var(--brand-strong) 100%); border-radius: var(--radius); padding: 14px 16px; margin: 0 0 12px 0; display: flex; justify-content: space-between; align-items: center; gap: 10px; color: #fff; box-shadow: 0 4px 14px rgba(37, 99, 235, .24); }
+.grand-total-block .gt-label { font-size: 13px; font-weight: 700; }
+.grand-total-block .gt-value { font-size: 26px; font-weight: 800; }
+.day-summary-grid { display: grid; grid-template-columns: repeat(4, 1fr) !important; gap: 6px; margin: 0 0 12px 0; }
+.ds-cell { background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 8px 4px; display: flex; flex-direction: column; align-items: center; gap: 2px; }
+.ds-cell.plain { background: var(--brand-soft); border-color: var(--brand-soft-border); }
+.ds-label { font-size: 11.5px; color: var(--muted); font-weight: 700; }
+.ds-value { font-size: 16px; font-weight: 800; color: var(--text); }
+.ds-cell.plain .ds-value { color: var(--brand-text); }
+.calc-mini-btn { width: auto !important; min-height: 34px !important; padding: 0 12px !important; font-size: 13px !important; background: var(--surface-2) !important; color: var(--text-2) !important; border: 1px solid var(--border-strong) !important; }
+.calc-compact { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.calc-compact .field { display: flex; flex-direction: column; }
+.calc-compact .field label { margin: 0 0 5px 0; font-size: 13px; font-weight: 700; color: var(--muted); }
+.calc-compact .field input, .calc-compact .field select { margin: 0; padding: 8px 10px; font-size: 15px; font-weight: 700; }
+
+.collapse-header { padding: 13px 16px; cursor: pointer; display: flex; align-items: center; gap: 8px; min-height: 50px; }
+.collapse-header:hover { background: var(--surface-2); }
+.collapse-header .title { font-size: 14px; font-weight: 800; flex: 1; }
+.collapse-header .count { font-size: 12px; color: var(--brand-text); background: var(--brand-soft); padding: 2px 9px; border-radius: 999px; font-weight: 700; border: 1px solid var(--brand-soft-border); }
+.collapse-header .count b { font-weight: 800; }
+.collapse-header .arrow { font-size: 11px; color: var(--muted); transition: transform .2s; }
+.collapse-header.expanded .arrow { transform: rotate(180deg); }
+.collapse-body { padding: 0 16px 16px 16px; display: none; }
+.collapse-body.show { display: block; }
+.info-list { background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 11px 13px; font-size: 13.5px; color: var(--text-2); line-height: 1.8; }
+
+.remarks-box { border-radius: var(--radius-sm); padding: 12px 14px; font-size: 13.5px; line-height: 1.65; border: 1px solid var(--border); }
+.remarks-ok { background: var(--success-bg); border-color: var(--success-border); color: var(--success); }
+.remarks-warn { background: var(--warning-bg); border-color: var(--warning-border); color: var(--warning); }
+.remarks-error { background: var(--danger-bg); border-color: var(--danger-border); color: var(--danger); }
+.remarks-info { background: var(--brand-soft); border-color: var(--brand-soft-border); color: var(--brand-text); }
+
+.notice-item { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 12px 14px; margin-bottom: 8px; }
+.notice-item.priority-high { border-color: var(--danger-border); background: var(--danger-bg); }
+.notice-title { font-size: 14px; font-weight: 800; margin-bottom: 4px; }
+.notice-body { font-size: 13px; color: var(--text-2); line-height: 1.65; margin-bottom: 6px; }
+.notice-date { font-size: 11.5px; color: var(--muted); font-weight: 700; }
+.info-banner { font-size: 13.5px; color: var(--text-2); margin-bottom: 14px; padding: 11px 13px; background: var(--brand-soft); border-radius: var(--radius-sm); border: 1px solid var(--border); }
+.team-member { display: flex; align-items: center; gap: 13px; padding: 12px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); margin-bottom: 10px; }
+.team-photo { width: 56px; height: 56px; border-radius: 50%; object-fit: cover; border: 2px solid var(--border); }
+.team-info { flex: 1; min-width: 0; }
+.team-name { font-size: 14.5px; font-weight: 800; }
+.team-desig { font-size: 12.5px; color: var(--brand-text); font-weight: 700; }
+.team-id { font-size: 12px; color: var(--muted); }
+.team-wa { display: inline-flex; align-items: center; justify-content: center; background: #1FA855; color: #fff; padding: 8px 13px; border-radius: var(--r-btn); font-size: 13px; font-weight: 700; text-decoration: none; min-height: var(--tap); }
+.team-wa:hover { background: #178A45; }
+.team-wa svg { width: 16px; height: 16px; fill: currentColor; }
+
+.history-item { padding: 11px 14px; background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--radius-sm); margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; }
+.history-item:hover { background: var(--brand-soft); }
+.history-item .id { font-weight: 800; font-size: 14.5px; }
+.history-item .meta { font-size: 12px; color: var(--muted); }
+.empty-msg { text-align: center; color: var(--muted); padding: 28px 18px; font-size: 13.5px; }
+.danger-btn { background: var(--danger-bg) !important; color: var(--danger) !important; border-color: var(--danger-border) !important; }
+.settings-row { display: flex; justify-content: space-between; padding: 11px 0; border-bottom: 1px solid var(--border); font-size: 13.5px; gap: 12px; }
+.settings-row:last-of-type { border-bottom: none; }
+.settings-row .label { color: var(--muted); font-weight: 500; }
+.settings-row .value { color: var(--text); font-weight: 700; text-align: right; }
+.settings-footer { text-align: center; color: var(--muted); font-size: 12px; padding: 16px 0 2px 0; }
+
+.more-list { display: flex; flex-direction: column; gap: 8px; }
+.more-item { display: flex; align-items: center; gap: 14px; width: 100%; background: var(--surface); color: var(--text); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 14px; min-height: 60px; text-align: left; font-weight: 700; font-size: 14.5px; justify-content: flex-start; }
+.more-item:hover { background: var(--surface-2); }
+.more-item .mi-icon { width: 38px; height: 38px; border-radius: 10px; background: var(--brand-soft); color: var(--brand-text); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.more-item .mi-icon svg { width: 20px; height: 20px; stroke: currentColor; fill: none; stroke-width: 2; }
+.more-item .mi-text { flex: 1; }
+.more-item .mi-text small { display: block; font-size: 12px; font-weight: 500; color: var(--muted); margin-top: 1px; }
+.more-item .mi-chev { color: var(--muted); font-size: 18px; }
+
+.theme-seg { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; padding: 4px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 10px; margin-top: 10px; }
+.theme-seg button { background: transparent; color: var(--text-2); font-size: 13.5px; min-height: 38px; border-radius: 7px; }
+.theme-seg button.active { background: var(--surface); color: var(--brand-text); box-shadow: var(--shadow); }
+
+.bottom-nav { position: fixed; left: 0; right: 0; bottom: 0; z-index: 900; display: flex; justify-content: space-around; background: var(--surface); border-top: 1px solid var(--border); padding: 6px 8px calc(6px + env(safe-area-inset-bottom)) 8px; }
+.bn-item { flex: 1; min-height: 54px; padding: 6px 4px; background: transparent; color: var(--muted); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; font-size: 11.5px; font-weight: 700; }
+.bn-item svg { width: 22px; height: 22px; stroke: currentColor; fill: none; stroke-width: 2; transition: transform .18s; }
+.bn-item.active { color: var(--brand-text); background: var(--brand-soft); }
+.bn-item.active svg { transform: translateY(-1px) scale(1.05); }
+
+.rank-item { display: flex; align-items: center; gap: 12px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 10px 12px; margin-bottom: 8px; cursor: pointer; min-height: 62px; }
+.rank-item:hover { background: var(--surface-2); }
+.rank-number { width: 34px; height: 34px; border-radius: 50%; background: var(--surface-2); color: var(--text-2); border: 1px solid var(--border-strong); display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 14px; flex-shrink: 0; }
+.rank-info { flex: 1; min-width: 0; }
+.rank-name { font-size: 14px; font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rank-id-line { font-size: 12px; color: var(--muted); font-weight: 600; margin-top: 2px; display: flex; gap: 5px; flex-wrap: wrap; }
+.rank-desig { display: inline-block; padding: 1px 7px; border-radius: 5px; font-size: 11px; font-weight: 800; background: var(--brand-soft); color: var(--brand-text); }
+.rank-area { display: inline-block; padding: 1px 7px; border-radius: 5px; font-size: 11px; font-weight: 800; background: var(--surface-2); color: var(--text-2); border: 1px solid var(--border-strong); }
+.rank-item > div:last-child { text-align: right; flex-shrink: 0; max-width: 46%; }
+.rank-value { font-weight: 800; color: var(--text); font-size: 14px; }
+.rank-meta { font-size: 11.5px; color: var(--muted); margin-top: 2px; }
+
+.modal { display: none; position: fixed; z-index: 9999; left: 0; top: 0; width: 100%; height: 100%; background: rgba(5, 10, 20, .94); overflow-y: auto; }
+.modal-content-wrapper { position: relative; max-width: 1000px; margin: 0 auto; text-align: center; padding: 20px 10px 110px 10px; }
+#modal-canvas { max-width: 100%; height: auto; border-radius: var(--radius); display: block; margin: 0 auto; }
+.modal-bottom { position: fixed; bottom: 0; left: 0; right: 0; padding: 14px; background: linear-gradient(to top, rgba(5, 10, 20, .98), transparent); text-align: center; z-index: 10000; }
+.close-btn { background: #fff; color: #0B1B33; width: auto; padding: 10px 28px; min-height: var(--tap-lg); }
+.lb-modal { display: none; position: fixed; z-index: 10000; left: 0; top: 0; width: 100%; height: 100%; background: var(--overlay); align-items: center; justify-content: center; padding: 16px; }
+.lb-modal.open { display: flex; }
+.lb-modal-content { width: 100%; max-width: 640px; max-height: 92vh; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); display: flex; flex-direction: column; overflow: hidden; }
+.lb-modal-header { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; border-bottom: 1px solid var(--border); }
+.lb-modal-title { font-size: 15.5px; font-weight: 800; }
+.lb-modal-close { width: 38px; height: 38px; border-radius: 50%; background: var(--surface-2); color: var(--text-2); border: 1px solid var(--border); font-size: 16px; }
+.lb-modal-body { flex: 1; overflow-y: auto; padding: 12px 14px 20px 14px; }
+
+.toast-container { position: fixed; top: 16px; left: 50%; transform: translateX(-50%); z-index: 12000; display: flex; flex-direction: column; gap: 8px; width: calc(100% - 28px); max-width: 400px; pointer-events: none; }
+.toast-msg { background: var(--surface); color: var(--text); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 10px 14px; font-size: 13.5px; font-weight: 700; box-shadow: var(--shadow-lg); display: flex; align-items: center; gap: 10px; pointer-events: auto; }
+.toast-msg.warn { border-color: var(--warning-border); background: var(--warning-bg); color: var(--warning); }
+.toast-msg.error { border-color: var(--danger-border); background: var(--danger-bg); color: var(--danger); }
+.toast-msg.success { border-color: var(--success-border); background: var(--success-bg); color: var(--success); }
+
+#page-admin .card { max-width: 820px; margin: 0 auto 14px auto; }
+.admin-hero-banner { background: linear-gradient(135deg, #0F172A 0%, #1E3A8A 60%, #2563EB 100%); color: #FFFFFF; border-radius: var(--radius-lg); padding: 16px; margin-bottom: 14px; max-width: 820px; margin-left: auto; margin-right: auto; }
+.admin-hero-banner h3 { margin: 0 0 4px 0; font-size: 17px; font-weight: 800; }
+.admin-hero-banner p { margin: 0; font-size: 13px; color: rgba(255, 255, 255, 0.88); }
+.admin-textarea { width: 100%; min-height: 100px; padding: 10px 12px; margin-top: 6px; border: 1px solid var(--border-strong); border-radius: var(--radius-sm); font-size: 14px; font-family: inherit; background: var(--surface); color: var(--text); resize: vertical; }
+.admin-nav-tabs { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-bottom: 14px; max-width: 820px; margin-left: auto; margin-right: auto; }
+.admin-tab-btn { background: var(--surface) !important; color: var(--text-2) !important; border: 1px solid var(--border-strong) !important; border-radius: var(--r-btn) !important; min-height: var(--tap) !important; padding: 6px 10px !important; font-size: 13px !important; font-weight: 800 !important; }
+.admin-tab-btn.active { background: var(--brand) !important; color: #FFFFFF !important; border-color: var(--brand) !important; }
+.admin-section-pane { display: none; }
+.admin-section-pane.active { display: block; }
+.admin-file-list { background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 10px 12px; margin-top: 10px; font-size: 13px; }
+.admin-file-item { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 0; border-bottom: 1px solid var(--border); flex-wrap: wrap; }
+.admin-file-item:last-child { border-bottom: none; }
+.admin-file-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; min-width: 156px; }
+.admin-file-actions button { min-height: 32px !important; padding: 0 10px !important; font-size: 12.5px !important; }
+
+@media (min-width: 600px) { .page { max-width: 680px; } }
+@media (min-width: 900px) {
+  body { padding: 0 24px 40px 24px; }
+  .bottom-nav { display: none; }
+  .page { max-width: 1200px; }
+  #page-search.active { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px 20px; align-items: start; }
+  #page-search.active > * { grid-column: 1 / -1; margin: 0; }
+  #page-search.active > #step3, #page-search.active > #step7, #page-search.active > #step5, #page-search.active > #step4 { grid-column: 1; }
+  #page-search.active > #step2 { grid-column: 2; grid-row: span 6; position: sticky; top: 84px; }
+}
+</style>
+</head>
+<body data-page="search">
+<div id="toastContainer" class="toast-container" aria-live="polite"></div>
+
+<nav class="bottom-nav" aria-label="Main navigation">
+  <button class="bn-item active" data-nav="search" onclick="switchPage('search')">
+    <svg viewBox="0 0 24 24"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5M9 13h6M9 17h6"/></svg>
+    <span>রিপোর্ট</span>
+  </button>
+  <button class="bn-item" data-nav="leaderboard" onclick="switchPage('leaderboard')">
+    <svg viewBox="0 0 24 24"><path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0z"/><path d="M17 5h3v2a3 3 0 0 1-3 3M7 5H4v2a3 3 0 0 0 3 3"/></svg>
+    <span>সেরা</span>
+  </button>
+  <button class="bn-item" data-nav="more" onclick="switchPage('more')">
+    <svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>
+    <span>আরও</span>
+  </button>
+</nav>
+
+<div class="page active" id="page-search">
+  <div class="app-header">
+    <div class="header" id="mainHeader">
+      <h2>RENATA PLC</h2>
+      <p>ওভারটাইম রিপোর্ট ও হিসাব</p>
+    </div>
+    <button id="backToLbBtn" class="icon-btn" onclick="backToLeaderboard()" style="display:none;" aria-label="তালিকায় ফিরুন">
+      <svg viewBox="0 0 24 24"><path d="M9 14L4 9l5-5"/><path d="M4 9h10a6 6 0 0 1 0 12h-3"/></svg>
+    </button>
+    <button class="icon-btn theme-toggle" onclick="toggleTheme()">
+      <svg class="i-moon" viewBox="0 0 24 24"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
+      <svg class="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+    </button>
+  </div>
+
+  <div class="card" id="searchFormCard">
+    <label for="monthSelect">কোন মাসের ওভারটাইম দেখবেন?</label>
+    <div class="row" style="display:flex; gap:8px; margin-top:6px;">
+      <select id="yearSelect" aria-label="বছর" style="flex:1;"></select>
+      <select id="monthSelect" aria-label="মাস" style="flex:1;">
+        <option value="01">জানুয়ারি</option><option value="02">ফেব্রুয়ারি</option>
+        <option value="03">মার্চ</option><option value="04">এপ্রিল</option>
+        <option value="05">মে</option><option value="06">জুন</option>
+        <option value="07">জুলাই</option><option value="08">আগস্ট</option>
+        <option value="09">সেপ্টেম্বর</option><option value="10">অক্টোবর</option>
+        <option value="11">নভেম্বর</option><option value="12">ডিসেম্বর</option>
+      </select>
+    </div>
+    <label for="employeeId">আপনার আইডি নম্বর</label>
+    <input type="text" id="employeeId" placeholder="যেমন: CF8355" autocomplete="off" autocapitalize="characters" inputmode="text">
+    <button id="searchBtn" class="btn-primary" onclick="findReport()">ওভারটাইম রিপোর্ট দেখুন</button>
+    <div id="spinner" class="spinner"></div>
+    <div id="status" role="status" aria-live="polite"></div>
+    <div id="progress"></div>
+  </div>
+
+  <div class="search-summary" id="searchSummary" onclick="expandSearchForm()">
+    <div class="id-badge" id="summaryId">—</div>
+    <div class="month-info" id="summaryMonth">—</div>
+    <div class="edit-icon">পরিবর্তন</div>
+  </div>
+
+  <!-- PDF Viewer Card (hidden by default) -->
+  <div class="collapse-card" id="step2" style="display:none;">
+    <div class="collapse-header" id="step2Header" onclick="togglePdfCollapse('step2Body', this)">
+      <span class="title">আসল রিপোর্ট (PDF) দেখুন</span>
+      <span class="arrow">▼</span>
+    </div>
+    <div class="collapse-body" id="step2Body">
+      <div id="pdfLazyStatus" style="display:none;text-align:center;padding:12px;font-size:13px;color:var(--muted);font-weight:600;">PDF রিপোর্ট প্রস্তুত করা হচ্ছে, অনুগ্রহ করে অপেক্ষা করুন...</div>
+      <div id="pdf-viewer"><canvas id="pdf-canvas"></canvas></div>
+      <div class="btn-group">
+        <a id="downloadBtn" class="btn-action" target="_blank" onclick="handlePdfDownloadClick(event)">PDF ডাউনলোড</a>
+        <button id="openBtn" class="btn-action btn-secondary" onclick="openModal()">বড় করে দেখুন</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Calculation Card -->
+  <div class="card calc-card" id="step3">
+    <div class="card-head" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+      <h3><span id="step3HeadingText">আপনার ওভারটাইম</span> <span id="categoryBadge" class="badge">—</span></h3>
+      <button type="button" class="calc-mini-btn" onclick="openRateChartModal()">রেট চার্ট</button>
+    </div>
+    <div id="userGreeting" class="greeting-banner">
+      <div class="greet-text"><span id="greetName">ইউজার</span>, আপনার হিসাব প্রস্তুত</div>
+      <div class="greet-sub" id="greetSubText">রিপোর্টের সাথে একবার মিলিয়ে নিন।</div>
+    </div>
+    <div id="gradeInfo" class="grade-info" style="display:none;"></div>
+    <div id="calcInputs">
+      <div class="grand-total-block">
+        <span class="gt-label" id="gtLabelText">ওভারটাইমে মোট পাবেন</span>
+        <span class="gt-value" id="lblGrandTotal">৳ 0</span>
+      </div>
+      <div class="rate-line" style="display:flex; justify-content:space-between; font-size:12.5px; color:var(--muted); margin-bottom:10px;">
+        <span>প্রতি ঘণ্টা: <b id="lblRate">৳ 0/hr</b></span>
+        <span id="lblRateSub">—</span>
+      </div>
+      <div class="bill-list" style="display:flex; flex-direction:column; border:1px solid var(--border); border-radius:var(--radius-sm); overflow:hidden; margin-bottom:12px;">
+        <div class="bill-row" style="display:flex; align-items:center; justify-content:space-between; padding:11px 14px; background:var(--surface-2); border-bottom:1px solid var(--border);">
+          <div><div class="bill-name" style="font-size:14px; font-weight:800;">ওটি অ্যালাউন্স</div><div class="bill-calc" id="lblOtFormula" style="font-size:12px; color:var(--muted);">0 hr × ৳0</div></div>
+          <div class="bill-amt" id="lblOtAmount" style="font-size:16.5px; font-weight:800;">৳ 0</div>
+        </div>
+        <div class="bill-row" style="display:flex; align-items:center; justify-content:space-between; padding:11px 14px; background:var(--surface-2); border-bottom:1px solid var(--border);">
+          <div><div class="bill-name" style="font-size:14px; font-weight:800;">হলিডে অ্যালাউন্স</div><div class="bill-calc" id="lblHolidayFormula" style="font-size:12px; color:var(--muted);">0 দিন</div></div>
+          <div class="bill-amt" id="lblHolidayAmount" style="font-size:16.5px; font-weight:800;">৳ 0</div>
+        </div>
+        <div class="bill-row" style="display:flex; align-items:center; justify-content:space-between; padding:11px 14px; background:var(--surface-2);">
+          <div><div class="bill-name" style="font-size:14px; font-weight:800;">নাইট অ্যালাউন্স</div><div class="bill-calc" id="lblNightFormula" style="font-size:12px; color:var(--muted);">0 রাত</div></div>
+          <div class="bill-amt" id="lblNightAmount" style="font-size:16.5px; font-weight:800;">৳ 0</div>
+        </div>
+      </div>
+      <div class="day-summary-grid" id="daySummaryGrid" style="display:none;">
+        <div class="ds-cell"><span class="ds-value" id="dsRegularDays">—</span><span class="ds-label">সাধারণ দিন</span></div>
+        <div class="ds-cell"><span class="ds-value" id="dsHolidayDays">—</span><span class="ds-label">হলিডে অ্যালাউন্স</span></div>
+        <div class="ds-cell"><span class="ds-value" id="dsNightDays">—</span><span class="ds-label">নাইট অ্যালাউন্স</span></div>
+        <div class="ds-cell plain"><span class="ds-value" id="dsPlainDays">—</span><span class="ds-label">রেগুলার ডিউটি</span></div>
+      </div>
+      
+      <details class="adjust" style="border-top: 1px dashed var(--border-strong); padding-top: 4px; margin-top:12px;">
+        <summary style="list-style: none; cursor: pointer; min-height: var(--tap); display: flex; align-items: center; justify-content: space-between; font-weight: 700; font-size: 13.5px; color: var(--brand-text);">ঘণ্টা কম-বেশি করলে কত টাকা হবে, দেখুন</summary>
+        <div class="adjust-body" style="padding-top: 8px;">
+          <div class="calc-compact">
+            <div class="field">
+              <label for="inpCategory">আপনার ক্যাটাগরি</label>
+              <select id="inpCategory" onchange="recalculate()">
+                <option value="CF">CF - চুক্তিভিত্তিক</option>
+                <option value="JO">JO - জুনিয়র অফিসার</option>
+                <option value="JO_B">JO (A/B) - জুনিয়র অফিসার A/B</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="inpOtHours">ওটি ঘণ্টা</label>
+              <input type="number" id="inpOtHours" value="0" step="0.01" inputmode="decimal" oninput="recalculate()">
+            </div>
+            <div class="field">
+              <label for="inpHoliday">হলিডে অ্যালাউন্স (কত দিন)</label>
+              <input type="number" id="inpHoliday" value="0" step="1" inputmode="numeric" oninput="recalculate()">
+            </div>
+            <div class="field">
+              <label for="inpNight">নাইট অ্যালাউন্স (কত রাত)</label>
+              <input type="number" id="inpNight" value="0" step="1" inputmode="numeric" oninput="recalculate()">
+            </div>
+          </div>
+        </div>
+      </details>
+    </div>
+  </div>
+
+  <div class="collapse-card calc-card" id="step4">
+    <div class="collapse-header" onclick="toggleCollapse('step4Body', this)">
+      <span class="title">অন্য সহকর্মীর সাথে মিলিয়ে দেখুন</span>
+      <span class="arrow">▼</span>
+    </div>
+    <div class="collapse-body" id="step4Body">
+      <div id="compareInputArea">
+        <div id="compareMyAmount" class="grade-info" style="display:none;"></div>
+        <label for="compareId">সহকর্মীর আইডি নম্বর</label>
+        <input type="text" id="compareId" placeholder="যেমন: CF8355" autocomplete="off" autocapitalize="characters" inputmode="text">
+        <button id="compareBtn" class="btn-primary" onclick="runComparison()" style="margin-top:12px;">তুলনা করুন</button>
+        <div id="compareStatus" style="margin-top:10px;text-align:center;font-size:13px;color:var(--muted);"></div>
+      </div>
+      <div id="compareResult" style="display:none;"></div>
+    </div>
+  </div>
+
+  <div class="collapse-card calc-card" id="step5">
+    <div class="collapse-header" onclick="toggleCollapse('step5Body', this)">
+      <span class="title">হলিডে ও নাইট ডিউটির তারিখ</span>
+      <span class="count">হলিডে <b id="holidayCount">০</b></span>
+      <span class="count">নাইট <b id="nightCount">০</b></span>
+      <span class="arrow">▼</span>
+    </div>
+    <div class="collapse-body" id="step5Body">
+      <div class="sub-h" style="font-size:13px; font-weight:800; margin:12px 0 6px;">হলিডে অ্যালাউন্স তারিখসমূহ</div>
+      <div id="holidayList" class="info-list">—</div>
+      <div class="sub-h" style="font-size:13px; font-weight:800; margin:12px 0 6px;">নাইট অ্যালাউন্স তারিখসমূহ</div>
+      <div id="nightList" class="info-list">—</div>
+    </div>
+  </div>
+
+  <div class="card calc-card" id="step7">
+    <div class="section-label" id="step7LabelText" style="font-size:13px; font-weight:800; color:var(--text-2); margin:0 0 10px 0; border-bottom:1px solid var(--border); padding-bottom:8px;">আপনার রিপোর্ট ঠিক আছে কিনা</div>
+    <div id="remarksBox" class="remarks-box remarks-info">—</div>
+    <button onclick="resetAll()" class="reset-btn" style="background:transparent; color:var(--text-2); border:1px solid var(--border-strong); margin-top:10px; font-size:13.5px;">আবার নতুন করে দেখুন</button>
+  </div>
+</div>
+
+<div class="page" id="page-leaderboard">
+  <div class="app-header">
+    <div class="header">
+      <h2 id="lbPageMainTitle">এই মাসে সেরা কে?</h2>
+      <p id="lbSubtitle">—</p>
+    </div>
+    <button class="icon-btn theme-toggle" onclick="toggleTheme()">
+      <svg class="i-moon" viewBox="0 0 24 24"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
+      <svg class="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+    </button>
+  </div>
+
+  <div class="card" id="lbInitialCard">
+    <div class="empty-msg" style="padding: 18px 0;">এই মাসে কে কত ওভারটাইম করেছে, সবার তালিকা দেখুন।</div>
+    <button class="btn-primary" onclick="startLeaderboardScan(true)">সবার তালিকা দেখুন</button>
+  </div>
+
+  <div class="card" id="lbScanCard" style="display:none;">
+    <div class="scan-counter" id="lbScanCounter">তথ্য যাচাই করা হচ্ছে, অনুগ্রহ করে অপেক্ষা করুন...</div>
+    <div class="scan-progress-bar" style="width: 100%; height: 8px; background: var(--surface-2); border-radius: 999px; overflow: hidden; margin: 14px 0;"><div class="scan-progress-fill" id="lbScanFill" style="height: 100%; background: var(--brand); width: 0%; transition: width .3s ease;"></div></div>
+  </div>
+
+  <div class="card lb-wrapper" id="lbResultCard" style="display:none;">
+    <div class="area-filter-card" style="background: var(--brand-soft); border: 1px solid var(--brand-soft-border); border-radius: var(--radius); padding: 12px; margin-bottom: 14px;">
+      <div class="area-filter-head" style="display:flex; justify-content:space-between; margin-bottom:8px;">
+        <h3 class="area-filter-title" style="margin:0; font-size:13.5px; font-weight:800;">এরিয়া অনুযায়ী দেখুন</h3>
+        <span class="area-filter-count" id="areaFilterCount" style="font-size:11.5px; font-weight:800; background:var(--surface); padding:3px 10px; border-radius:999px;">সব এরিয়া</span>
+      </div>
+      <select class="area-filter-select" id="areaFilter" onchange="applyAreaFilter()" style="margin-top:0; font-weight:700;">
+        <option value="all">সব এরিয়া</option>
+      </select>
+    </div>
+    
+    <div class="lb-hero">
+      <div class="lb-hero-head" style="display:flex; justify-content:space-between; margin:4px 0 12px 0;">
+        <h3 class="lb-hero-title" style="margin:0; font-size:15px; font-weight:800;">সেরা ৩ জন</h3>
+        <span class="lb-hero-sub" id="lbHeroAreaLabel" style="font-size:11.5px; font-weight:700; color:var(--brand-text);">সর্বোচ্চ Duty Hours</span>
+      </div>
+      <div id="lbTopDuty" class="lb-podium"></div>
+    </div>
+    
+    <div class="lb-tabs-card" style="margin-top: 18px;">
+      <div class="lb-tabs-head" style="display:flex; justify-content:space-between; margin-bottom:10px;"><h3 class="lb-tabs-title" style="margin:0; font-size:15px; font-weight:800;">সর্বোচ্চ পারফরমার</h3></div>
+      <div class="lb-tabs" style="display:grid; grid-template-columns:repeat(3, 1fr); gap:4px; padding:4px; background:var(--surface-2); border-radius:10px; margin-bottom:12px;">
+        <button class="lb-tab active" data-lb-tab="ot" onclick="switchLbTab('ot')" style="background:var(--surface); color:var(--brand-text); border-radius:7px; min-height:38px;">OT Hours</button>
+        <button class="lb-tab" data-lb-tab="earned" onclick="switchLbTab('earned')" style="background:transparent; color:var(--muted); border-radius:7px; min-height:38px;">Total Earning</button>
+        <button class="lb-tab" data-lb-tab="punch" onclick="switchLbTab('punch')" style="background:transparent; color:var(--muted); border-radius:7px; min-height:38px;">Punch</button>
+      </div>
+      <div class="lb-panel active" data-lb-panel="ot" style="display:block;">
+        <div id="lbTopOT" class="lb-panel-list"></div>
+      </div>
+      <div class="lb-panel" data-lb-panel="earned" style="display:none;">
+        <div id="lbTopEarned" class="lb-panel-list"></div>
+      </div>
+      <div class="lb-panel" data-lb-panel="punch" style="display:none;">
+        <div id="lbTopPunch" class="lb-panel-list"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="page" id="page-more">
+  <div class="app-header">
+    <div class="header"><h2>আরও</h2><p>অন্যান্য অপশন</p></div>
+  </div>
+  <div class="more-list">
+    <button class="more-item" onclick="switchPage('admin')" type="button">
+      <span class="mi-icon"><svg viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></span>
+      <span class="mi-text">Admin Panel<small>PDF & Excel Upload, ID & Notice Update</small></span>
+      <span class="mi-chev">›</span>
+    </button>
+    <button class="more-item" onclick="switchPage('settings')" type="button">
+      <span class="mi-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></span>
+      <span class="mi-text">সেটিংস<small>থিম ও অ্যাপ তথ্য</small></span>
+      <span class="mi-chev">›</span>
+    </button>
+  </div>
+</div>
+
+<div class="page" id="page-settings">
+  <div class="app-header">
+    <div class="header"><h2>সেটিংস</h2><p>অ্যাপের তথ্য</p></div>
+    <button class="icon-btn theme-toggle" onclick="toggleTheme()">
+      <svg class="i-moon" viewBox="0 0 24 24"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
+      <svg class="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+    </button>
+  </div>
+  <div class="card">
+    <div class="settings-row"><span class="label">App Version</span><span class="value">3.0.0 (Excel Update)</span></div>
+    <div class="settings-row"><span class="label">Server</span><span class="value">RPPF Cloud Server</span></div>
+    <div class="settings-row"><span class="label">Developed by</span><span class="value">ERP Team</span></div>
+    <div class="settings-footer">© 2026 RENATA PLC</div>
+  </div>
+</div>
+
+<div class="page" id="page-admin">
+  <div class="app-header">
+    <div class="header"><h2>Admin Panel</h2><p>RPPF Cloud Server Management</p></div>
+    <button class="icon-btn theme-toggle" onclick="toggleTheme()">
+      <svg class="i-moon" viewBox="0 0 24 24"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
+      <svg class="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+    </button>
+  </div>
+  
+  <div class="card" id="adminLoginCard">
+    <div class="admin-hero-banner">
+      <h3>Admin Login</h3>
+      <p>Only authorized administrators can access the cloud server to upload data.</p>
+    </div>
+    <label for="adminPassInput">Admin Password:</label>
+    <input type="password" id="adminPassInput" placeholder="Enter password" autocomplete="off">
+    <button type="button" class="btn-primary" style="margin-top:14px;" onclick="handleAdminLogin()">Login</button>
+  </div>
+  
+  <div id="adminDashboardWrap" style="display:none;">
+    <div class="admin-hero-banner">
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <div>
+          <h3>RPPF Cloud Server</h3>
+          <p id="adminTokenStatusText">Check connection status</p>
+        </div>
+        <button type="button" class="calc-mini-btn" style="background:rgba(255,255,255,0.2)!important;color:#fff!important;" onclick="handleAdminLogout()">Logout</button>
+      </div>
+    </div>
+    
+    <div class="admin-nav-tabs">
+      <button type="button" class="admin-tab-btn active" id="admTabBtnPdf" onclick="switchAdminTab('pdf')">Data Upload</button>
+      <button type="button" class="admin-tab-btn" id="admTabBtnSetup" onclick="switchAdminTab('setup')">Server Setup</button>
+    </div>
+    
+    <div class="admin-section-pane active" id="admPanePdf">
+      <div class="card">
+        <div class="card-title" style="font-size:14px; font-weight:800; margin-bottom:4px;">Upload Monthly Report</div>
+        <div class="card-sub" style="font-size:12.5px; color:var(--muted); margin-bottom:12px;">Upload the raw Excel (.xlsx) file directly. The system will automatically parse all 1000+ employees, calculate their OT, and save it to the server.</div>
+        
+        <label for="adminPdfMonth">Month & Year:</label>
+        <div class="row" style="display:flex; gap:8px; margin-top:6px; margin-bottom:12px;">
+          <select id="adminPdfYear" style="flex:1;"></select>
+          <select id="adminPdfMonth" style="flex:1;">
+            <option value="01">January</option><option value="02">February</option>
+            <option value="03">March</option><option value="04">April</option>
+            <option value="05">May</option><option value="06">June</option>
+            <option value="07">July</option><option value="08">August</option>
+            <option value="09">September</option><option value="10">October</option>
+            <option value="11">November</option><option value="12">December</option>
+          </select>
+        </div>
+        
+        <label for="adminExcelFileInput">Select Excel File:</label>
+        <input type="file" id="adminExcelFileInput" accept=".xlsx,.xls" style="padding:8px;">
+        
+        <div id="adminUploadProgress" style="display:none;margin-top:12px;">
+          <div class="scan-counter" id="adminStatusText" style="font-size:13px; text-align:center; color:var(--brand-text);">Processing...</div>
+        </div>
+        
+        <button type="button" class="btn-primary" id="adminUploadBtn" onclick="processExcelUpload()" style="margin-top:14px;">Upload Excel Data</button>
+      </div>
+    </div>
+    
+    <div class="admin-section-pane" id="admPaneSetup">
+      <div class="card">
+        <div class="card-title">Server Connection</div>
+        <label for="adminGhTokenInput">Server Access Key:</label>
+        <input type="password" id="adminGhTokenInput" placeholder="Enter access key" autocomplete="off">
+        <button type="button" class="btn-primary" onclick="adminSaveAndTestGhToken()" style="margin-top:12px;">Save & Test Connection</button>
+        <div id="adminGhTokenTestResult" style="margin-top:10px;font-size:13px;font-weight:700;text-align:center;"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="pdfModal" class="modal" onclick="modalBackdropClick(event)">
+  <div class="modal-content-wrapper"><canvas id="modal-canvas"></canvas></div>
+  <div class="modal-bottom"><button class="close-btn" onclick="closeModal()">Close</button></div>
+</div>
+
+<!-- Rate Chart Modal -->
+<div id="rateChartModal" class="lb-modal" onclick="rateModalBackdropClick(event)">
+  <div class="lb-modal-content" onclick="event.stopPropagation()">
+    <div class="lb-modal-header">
+      <div class="lb-modal-title">Rate Chart</div>
+      <button class="lb-modal-close" onclick="closeRateChartModal()">×</button>
+    </div>
+    <div class="lb-modal-body">
+      <table class="rate-table" style="width:100%; border-collapse:collapse; font-size:13px; margin-bottom:14px;">
+        <thead><tr><th style="text-align:left; padding:8px; border-bottom:1px solid var(--border);">Category</th><th style="text-align:left; padding:8px; border-bottom:1px solid var(--border);">OT Rate</th><th style="text-align:left; padding:8px; border-bottom:1px solid var(--border);">Holiday</th><th style="text-align:left; padding:8px; border-bottom:1px solid var(--border);">Night</th></tr></thead>
+        <tbody>
+          <tr><td style="padding:8px; border-bottom:1px solid var(--border);"><strong>CF</strong></td><td style="padding:8px; border-bottom:1px solid var(--border);">৳ 38 / hr</td><td style="padding:8px; border-bottom:1px solid var(--border);">8 hr × ৳38</td><td style="padding:8px; border-bottom:1px solid var(--border);">৳ 300 / night</td></tr>
+          <tr><td style="padding:8px; border-bottom:1px solid var(--border);"><strong>JO</strong></td><td style="padding:8px; border-bottom:1px solid var(--border);">৳ 40 / hr</td><td style="padding:8px; border-bottom:1px solid var(--border);">৳ 300 / day</td><td style="padding:8px; border-bottom:1px solid var(--border);">৳ 400 / night</td></tr>
+          <tr><td style="padding:8px; border-bottom:1px solid var(--border);"><strong>JO A/B</strong></td><td style="padding:8px; border-bottom:1px solid var(--border);">৳ 45 / hr</td><td style="padding:8px; border-bottom:1px solid var(--border);">৳ 350 / day</td><td style="padding:8px; border-bottom:1px solid var(--border);">৳ 500 / night</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ============================================================
+   CONFIGURATION (CHANGE THESE FOR NEW REPO)
+   ============================================================ */
+const GITHUB_USERNAME = "checkot"; // আপনার ইউজারনেম দিন
+const REPO_NAME = "checkot.github.io"; // আপনার নতুন রিপোর নাম দিন (যেমন: renata-test)
+const REMOTE_BASE_URL = "https://checkot.github.io/"; // আপনার নতুন লিংক দিন
+
+const FALLBACK_LOGO_URI = "data:image/svg+xml;utf8," + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="14" fill="#2563EB"/><path d="M18 46V18h14c6.6 0 11 4 11 9.8 0 4.5-2.6 7.8-6.8 9L44 46h-8l-6.8-8.4H25V46h-7zm7-14.2h6.2c2.9 0 4.8-1.6 4.8-4s-1.9-4-4.8-4H25v8z" fill="#FFFFFF"/></svg>');
+
+pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
+
+const RATE_TABLE = {
+  CF:   { otRate: 38, nightRate: 300, holidayType: "hourly", holidayHours: 8, name: "Contractual (CF)" },
+  JO:   { otRate: 40, nightRate: 400, holidayType: "flat",   holidayFlat: 300, name: "Junior Officer (Below B)" },
+  JO_B: { otRate: 45, nightRate: 500, holidayType: "flat",   holidayFlat: 350, name: "Junior Officer A/B (Above B)" }
+};
+
+const DEFAULT_FALLBACK_AREAS = { "CF8355": "Solid Production", "RF20850": "Solid Production", "RF20178": "Softgel Production", "CF2697": "Softgel Production" };
+
+const CACHE_PREFIX = "renata_cache_v32_";
+const CACHE_TTL_MS = 1000 * 60 * 60 * 24 * 30;
+const LEADERBOARD_PREFIX = "renata_lb_v33_";
+const LEADERBOARD_TTL_MS = 1000 * 60 * 60 * 24 * 7;
+const MONTH_DATA_CACHE_PREFIX = "renata_mdata_v1_";
+const AREA_MAP_CACHE_KEY = "renata_area_map_v1";
+const PREFERRED_ID_KEY = "renata_preferred_id_v1";
+const APP_MODE_KEY = "renata_app_mode_v2";
+const ADMIN_PASS_KEY = "renata_admin_pass_v1";
+const ADMIN_SESSION_KEY = "renata_admin_logged_in_v1";
+const ADMIN_GH_TOKEN_KEY = "renata_gh_pat_v1";
+const DEFAULT_ADMIN_PASS = "admin1234";
+
+let currentPdf = null, currentFileUrl = null, currentPageNum = 1, currentFileName = "";
+let currentSearchId = "", currentMonth = "", currentToken = 0;
+let matchedPdfPage = null, currentResult = null, isScanning = false;
+let currentLeaderboardResult = null, AREA_MAP = {}, AREA_MAP_LOADED = false;
+let pendingPdfTarget = null, isPdfRenderedForCurrent = false, isPdfLoadingNow = false;
+const monthIndexMemoryCache = {};
+
+function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function showToast(msg, type = 'info') {
+  const box = document.getElementById('toastContainer');
+  const el = document.createElement('div');
+  el.className = 'toast-msg ' + (type || 'info');
+  el.innerHTML = `<span style="flex:1">${esc(msg)}</span>`;
+  box.appendChild(el);
+  setTimeout(() => { el.style.opacity = '0'; setTimeout(() => { if (el.parentNode) el.parentNode.removeChild(el); }, 260); }, 3200);
+}
+
+/* ============================================================
+   CORE CALCULATION FUNCTIONS (NEW FORMAT SUPPORT)
+   ============================================================ */
+
+function detectCategory(gradeText, empId) {
+  const g = (gradeText || "").toUpperCase().trim();
+  const idUpper = (empId || "").toUpperCase().trim();
+  
+  if (idUpper.startsWith("CF") || /\bHELPER\b/i.test(g)) {
+    return { category: "CF", valid: true, reason: "Contractual (Helper)", gradeText: g || "Helper" };
+  }
+  if (/\b(EXECUTIVE|SENIOR\s+OFFICER|ASSISTANT\s+MANAGER|MANAGER|DEPUTY|DIRECTOR|HEAD)\b/i.test(g) && !/JUNIOR\s+OFFICER/i.test(g)) {
+    return { category: null, valid: false, reason: "Management/Executive", gradeText: g };
+  }
+  const gradeMatch = g.match(/JUNIOR\s+OFFICER\s+([A-F])\b/i);
+  const levelMatch = g.match(/\bM(\d{2})\b/);
+  const gradeLetter = gradeMatch ? gradeMatch[1].toUpperCase() : null;
+  const levelNum = levelMatch ? parseInt(levelMatch[1]) : null;
+  
+  if (gradeLetter) { 
+    if (gradeLetter === "A" || gradeLetter === "B") return { category: "JO_B", valid: true, reason: `Grade ${gradeLetter}`, gradeText: g }; 
+    if (["C","D","E","F"].includes(gradeLetter)) return { category: "JO", valid: true, reason: `Grade ${gradeLetter}`, gradeText: g }; 
+  }
+  if (levelNum !== null) { 
+    if (levelNum === 16 || levelNum === 17) return { category: "JO_B", valid: true, reason: `M${levelNum}`, gradeText: g }; 
+    if (levelNum >= 18 && levelNum <= 20) return { category: "JO", valid: true, reason: `M${levelNum}`, gradeText: g }; 
+    return { category: null, valid: false, reason: `M${levelNum} — out of bounds`, gradeText: g }; 
+  }
+  if (idUpper.startsWith("RF") || idUpper.startsWith("CL")) {
+      return { category: "JO", valid: true, reason: "Junior Officer (Assumed)", gradeText: g };
+  }
+  return { category: null, valid: false, reason: "Grade not found", gradeText: g || "—" };
+}
+
+function parseText(rawText) {
+  const cleanText = rawText.replace(/\s+/g, " ").toUpperCase();
+  let otHours = 0, nightCount = 0, totalDuty = 0;
+  let holidayDays = [], nightDays = [], punchProblems = [], plainDays = [], regularDays = [];
+  let totalHourLine = false;
+
+  // Try to match the new "Total 22 days ... 181.16 28 ..." format
+  const totalMatch = cleanText.match(/TOTAL\s+\d+\s+DAYS?\s+([\d.]+)\s+([\d.]+)\s+([\d.]+)\s+([\d.]+)\s+([\d.]+)\s+([\d.]+)\s+(\d+)/i);
+  
+  if (totalMatch) {
+    totalDuty = parseFloat(totalMatch[1]) || 0;
+    otHours = (parseFloat(totalMatch[2]) || 0) + (parseFloat(totalMatch[4]) || 0) + (parseFloat(totalMatch[6]) || 0);
+    nightCount = parseInt(totalMatch[7]) || 0;
+    totalHourLine = true;
+  }
+
+  // Regex for new daily rows
+  const rowRegex = /(\d{2}-[A-Z]{3}-\d{4})\s+([A-Z]{3})\s+([\d:]*)\s*([\d:]*)\s+([\d.]+)\s+([\d.]+)\s+([\d.]+)\s+([\d.]+)\s+([\d.]+)\s+([\d.]+)\s+(YES)?/gi;
+  let rm;
+  const seenDates = new Set();
+  
+  while ((rm = rowRegex.exec(cleanText)) !== null) {
+    const date = rm[1];
+    if (seenDates.has(date)) continue;
+    seenDates.add(date);
+    
+    const inTime = (rm[3] || "").trim();
+    const outTime = (rm[4] || "").trim();
+    const regDuty = parseFloat(rm[5]) || 0;
+    const regExtra = parseFloat(rm[6]) || 0;
+    const doDuty = parseFloat(rm[7]) || 0;
+    const doExtra = parseFloat(rm[8]) || 0;
+    const holDuty = parseFloat(rm[9]) || 0;
+    const holExtra = parseFloat(rm[10]) || 0;
+    const isNight = (rm[11] || "").toUpperCase() === "YES";
+
+    if (regDuty > 0) regularDays.push(date);
+    if (doDuty > 0 || doExtra > 0 || holDuty > 0 || holExtra > 0) holidayDays.push({ date, doDuty, doExtra, holDuty, holExtra });
+    if (isNight) nightDays.push(date);
+    
+    // Missing punch check: In or Out is empty
+    if (!inTime || !outTime) {
+      punchProblems.push({ date, inTime: inTime || "MISSING", outTime: outTime || "MISSING" });
+    }
+
+    const hasAnyDuty = (regDuty + doDuty + holDuty) > 0;
+    const hasAnyExtra = (regExtra + doExtra + holExtra) > 0;
+    const hasValidPunch = inTime && outTime;
+
+    if (hasAnyDuty && !isNight && !hasAnyExtra && hasValidPunch) {
+      plainDays.push({ date, dutyType: regDuty > 0 ? 'Regular' : (doDuty > 0 ? 'DO' : 'Holiday'), hours: regDuty > 0 ? regDuty : (doDuty > 0 ? doDuty : holDuty) });
+    }
+  }
+
+  if (!totalHourLine && seenDates.size > 0) {
+      let calcOt = 0, calcNight = 0;
+      while ((rm = rowRegex.exec(cleanText)) !== null) {
+         calcOt += (parseFloat(rm[6]) || 0) + (parseFloat(rm[8]) || 0) + (parseFloat(rm[10]) || 0);
+         if ((rm[11] || "").toUpperCase() === "YES") calcNight++;
+      }
+      otHours = calcOt; nightCount = calcNight; totalHourLine = true;
+  }
+
+  return { 
+      totalDuty: Number(totalDuty.toFixed(2)), otHours: Number(otHours.toFixed(2)), nightCount, 
+      holidayCount: holidayDays.length, holidayDays, nightDays, punchProblems, totalHourLine, 
+      regularDaysCount: regularDays.length, regularDays, plainDaysCount: plainDays.length, plainDays 
+  };
+}
+
+/* ============================================================
+   EXCEL UPLOAD PROCESSOR
+   ============================================================ */
+async function processExcelUpload() {
+  const fileInput = document.getElementById('adminExcelFileInput');
+  const file = fileInput.files[0];
+  if (!file) { showToast('Please select an Excel file first.', 'warn'); return; }
+  
+  const progDiv = document.getElementById('adminUploadProgress');
+  const statusTxt = document.getElementById('adminStatusText');
+  const uploadBtn = document.getElementById('adminUploadBtn');
+  
+  progDiv.style.display = 'block';
+  statusTxt.textContent = 'Reading Excel file...';
+  uploadBtn.disabled = true;
+  
+  const reader = new FileReader();
+  reader.onload = async (e) => {
+    try {
+      const data = new Uint8Array(e.target.result);
+      const workbook = XLSX.read(data, { type: 'array' });
+      
+      // Try to find the "Work Log" sheet, otherwise use the first one
+      const sheetName = workbook.SheetNames.includes('Work Log') ? 'Work Log' : workbook.SheetNames[0];
+      const worksheet = workbook.Sheets[sheetName];
+      const json = XLSX.utils.sheet_to_json(worksheet, { header: 1, raw: false, defval: "" }); 
+      
+      let employees = [];
+      let currentEmp = null;
+      
+      for (let i = 0; i < json.length; i++) {
+        const row = json[i];
+        if (!row || row.length === 0) continue;
+        
+        // Header Row Detection (e.g., "RF20850 Mr. Md. Ariful Islam Junior Officer C...")
+        if (row[0] && typeof row[0] === 'string' && /^[A-Z]{2}\d{3,6}\s+/i.test(row[0].trim())) {
+            if (currentEmp) employees.push(currentEmp);
+            
+            const headerText = row[0].trim();
+            const idMatch = headerText.match(/^([A-Z]{2}\d{3,6})/i);
+            const id = idMatch ? idMatch[1] : 'UNKNOWN';
+            
+            const rest = headerText.substring(id.length).trim();
+            let name = rest.split(',')[0].replace(/Mr\.|Mrs\.|Ms\./gi, '').trim();
+            let designation = rest.includes(',') ? rest.split(',')[1].trim() : '';
+            
+            const detection = detectCategory(designation, id);
+            
+            currentEmp = {
+              id: id, name: name, grade: designation, category: detection.category || 'JO',
+              isRppf: headerText.toUpperCase().includes('RAJENDRAPUR'),
+              totalDuty: 0, otHours: 0, holidayCount: 0, nightCount: 0,
+              regularDaysCount: 0, plainDaysCount: 0,
+              holidayDays: [], nightDays: [], punchProblems: [], area: ''
+            };
+            continue;
+        }
+        
+        // Total Row Detection (e.g., "Total 22 days 181.16 28 ...")
+        if (row[0] && String(row[0]).trim() === 'Total' && currentEmp) {
+            currentEmp.totalDuty = Number(row[4]) || 0; // Duty (h)
+            currentEmp.otHours = Number(row[5]) || 0; // OT (h)
+            const doDuty = Number(row[6]) || 0;
+            const doOT = Number(row[7]) || 0;
+            const holDuty = Number(row[8]) || 0;
+            const holOT = Number(row[9]) || 0;
+            
+            currentEmp.holidayCount = (doDuty + doOT + holDuty + holOT) > 0 ? 1 : 0;
+            currentEmp.nightCount = Number(row[10]) || 0;
+            currentEmp.otHours += (doOT + holOT); 
+            continue;
+        }
+        
+        // Daily Row Detection (Date, Day, In, Out, Duty, OT...)
+        if (row[0] && typeof row[0] === 'string' && /^\d{2}-[A-Z]{3}-\d{4}$/i.test(row[0].trim()) && currentEmp) {
+            const date = row[0].trim();
+            const inTime = String(row[2] || '').trim();
+            const outTime = String(row[3] || '').trim();
+            const regDuty = Number(row[4]) || 0;
+            const doDuty = Number(row[6]) || 0;
+            const holDuty = Number(row[8]) || 0;
+            const doOT = Number(row[7]) || 0;
+            const holOT = Number(row[9]) || 0;
+            const isNight = String(row[10] || '').trim().toLowerCase() === 'yes';
+            
+            if (regDuty > 0) currentEmp.regularDaysCount++;
+            if (doDuty > 0 || doOT > 0 || holDuty > 0 || holOT > 0) currentEmp.holidayDays.push(date);
+            if (isNight) currentEmp.nightDays.push(date);
+            if (!inTime || !outTime) currentEmp.punchProblems.push(date);
+        }
+      }
+      
+      if (currentEmp) employees.push(currentEmp);
+      
+      // Recalculate exact counts based on arrays
+      employees.forEach(e => {
+          e.holidayCount = e.holidayDays.length;
+          e.nightCount = e.nightDays.length;
+          e.area = getAreaForId(e.id, e.isRppf);
+      });
+
+      const monthFolder = `${document.getElementById('adminPdfYear').value}-${document.getElementById('adminPdfMonth').value}`;
+      monthIndexMemoryCache[monthFolder] = employees;
+      
+      statusTxt.textContent = `Parsed ${employees.length} employees. Uploading to server...`;
+      
+      const payload = { month: monthFolder, updatedAt: new Date().toISOString(), employees: employees };
+      await githubPutFile(`data/${monthFolder}.json`, utf8ToBase64(JSON.stringify(payload)), `Upload Excel data for ${monthFolder}`);
+      
+      showToast(`Successfully uploaded data for ${employees.length} employees!`, 'success');
+      statusTxt.textContent = 'Upload complete!';
+      fileInput.value = '';
+      setTimeout(() => { progDiv.style.display = 'none'; }, 3000);
+      
+    } catch (err) {
+      console.error(err);
+      showToast('Excel processing failed: ' + err.message, 'error');
+      statusTxt.textContent = 'Error: ' + err.message;
+    } finally {
+      uploadBtn.disabled = false;
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+
+/* ============================================================
+   APP LOGIC (SEARCH, LEADERBOARD, ETC)
+   ============================================================ */
+function getPreferredId() { try { return (localStorage.getItem(PREFERRED_ID_KEY) || '').trim().toUpperCase() || null; } catch(e) { return null; } }
+function setPreferredId(id) { try { if (id) localStorage.setItem(PREFERRED_ID_KEY, String(id).trim().toUpperCase()); else localStorage.removeItem(PREFERRED_ID_KEY); } catch(e) {} }
+
+async function loadAreaMap() {
+  if (AREA_MAP_LOADED && Object.keys(AREA_MAP).length > 0) return AREA_MAP;
+  try {
+    const cachedRaw = localStorage.getItem(AREA_MAP_CACHE_KEY);
+    if (cachedRaw) { const parsed = JSON.parse(cachedRaw); if (parsed && parsed.data && typeof parsed.data === 'object') AREA_MAP = parsed.data; }
+  } catch (e) {}
+  try {
+    const data = await fetchJsonResource('areas.json');
+    AREA_MAP = (data && data.areas && typeof data.areas === 'object') ? data.areas : DEFAULT_FALLBACK_AREAS;
+    AREA_MAP_LOADED = true;
+    try { localStorage.setItem(AREA_MAP_CACHE_KEY, JSON.stringify({ ts: Date.now(), data: AREA_MAP })); } catch (e) {}
+    return AREA_MAP;
+  } catch (e) {
+    if (!AREA_MAP || Object.keys(AREA_MAP).length === 0) AREA_MAP = DEFAULT_FALLBACK_AREAS;
+    AREA_MAP_LOADED = true;
+    return AREA_MAP;
+  }
+}
+function getAreaForId(id, isRppf = true) {
+  if (!id) return "Unknown";
+  const upperId = String(id).toUpperCase().trim();
+  if (AREA_MAP[upperId]) return AREA_MAP[upperId];
+  return isRppf ? "Packing Hall" : "Other Facility";
+}
+async function fetchJsonResource(filename) {
+  const urls = [];
+  if (location.protocol === 'http:' || location.protocol === 'https:') urls.push(new URL(filename, location.href).href);
+  const remoteUrl = REMOTE_BASE_URL + filename;
+  if (!urls.includes(remoteUrl)) urls.push(remoteUrl);
+  let lastErr = null;
+  for (const u of urls) {
+    try { const resp = await fetch(u, { cache: 'no-store' }); if (resp.ok) return await resp.json(); }
+    catch (e) { lastErr = e; }
+  }
+  throw lastErr || new Error('Failed to load ' + filename);
+}
+async function fetchMonthPreIndexedData(month) {
+  if (monthIndexMemoryCache[month]) return monthIndexMemoryCache[month];
+  try {
+    const data = await fetchJsonResource(`data/${month}.json`);
+    const list = Array.isArray(data) ? data : (Array.isArray(data?.employees) ? data.employees : null);
+    if (list && list.length > 0) {
+      await loadAreaMap();
+      const normalized = list.map(e => ({
+        ...e,
+        id: String(e.id || '').toUpperCase().trim(),
+        isRppf: e.isRppf !== false,
+        area: (e.isRppf !== false) ? getAreaForId(e.id, true) : (e.area || 'Other')
+      }));
+      monthIndexMemoryCache[month] = normalized;
+      try { localStorage.setItem(MONTH_DATA_CACHE_PREFIX + month, JSON.stringify({ ts: Date.now(), employees: normalized })); } catch (e) {}
+      return normalized;
+    }
+  } catch (e) {
+    try {
+      const raw = localStorage.getItem(MONTH_DATA_CACHE_PREFIX + month);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed && Array.isArray(parsed.employees)) {
+          monthIndexMemoryCache[month] = parsed.employees;
+          return parsed.employees;
+        }
+      }
+    } catch (err) {}
+  }
+  return null;
+}
+
+async function findReport() {
+  document.body.classList.remove('has-result');
+  const year = document.getElementById('yearSelect').value;
+  const mon = document.getElementById('monthSelect').value;
+  const month = `${year}-${mon}`;
+  const rawId = document.getElementById('employeeId').value.trim();
+  const statusDiv = document.getElementById('status');
+  const spinner = document.getElementById('spinner');
+  const searchBtn = document.getElementById('searchBtn');
+  
+  if (!rawId) { showToast("Please enter your ID number first.", "warn"); document.getElementById('employeeId').focus(); return; }
+  const searchId = rawId.toUpperCase().replace(/\s+/g, '');
+  currentSearchId = searchId; currentMonth = month;
+  
+  ['viewingContextBanner','step2','step3','step4','step5','step7'].forEach(id => { const el = document.getElementById(id); if (el) { el.style.display = "none"; el.classList.remove('show'); } });
+  if (document.getElementById('downloadBtn')) document.getElementById('downloadBtn').style.display = "none";
+  if (document.getElementById('openBtn')) document.getElementById('openBtn').style.display = "none";
+  
+  currentResult = null; pendingPdfTarget = null; isPdfRenderedForCurrent = false;
+  statusDiv.style.color = "var(--primary-blue)"; statusDiv.innerText = "Processing data, please wait...";
+  spinner.style.display = "block"; searchBtn.disabled = true;
+
+  try {
+    await loadAreaMap();
+    const fastList = await fetchMonthPreIndexedData(month);
+    if (fastList && Array.isArray(fastList)) {
+      const matchedEmp = fastList.find(e => String(e.id || '').toUpperCase() === searchId);
+      if (matchedEmp) {
+        spinner.style.display = "none"; searchBtn.disabled = false;
+        statusDiv.style.color = "var(--success)"; statusDiv.innerText = "Report ready.";
+        
+        // Render instant record
+        const cat = matchedEmp.category || 'JO';
+        const r = RATE_TABLE[cat] || RATE_TABLE.JO;
+        const otAmount = matchedEmp.otHours * r.otRate;
+        const holidayAmount = r.holidayType === "hourly" ? matchedEmp.holidayCount * r.holidayHours * r.otRate : matchedEmp.holidayCount * r.holidayFlat;
+        const nightAmount = matchedEmp.nightCount * r.nightRate;
+        
+        currentResult = {
+          category: cat, otHours: matchedEmp.otHours, holiday: matchedEmp.holidayCount, night: matchedEmp.nightCount,
+          plainDays: matchedEmp.plainDaysCount || 0, otAmount, holidayAmount, nightAmount,
+          totalEarned: otAmount + holidayAmount + nightAmount, grade: matchedEmp.grade || '', valid: true,
+          name: matchedEmp.name || '', isRppf: matchedEmp.isRppf
+        };
+        
+        const detection = { valid: true, category: cat, reason: r.name, gradeText: matchedEmp.grade };
+        applyExtraction(currentResult, detection);
+        
+        ['step3','step4','step5','step7'].forEach(id => { const el = document.getElementById(id); if (el) { el.classList.add('show'); el.style.display = 'block'; } });
+        document.body.classList.add('has-result');
+        
+        // Hide PDF viewer since this is Excel data (no PDF to render)
+        document.getElementById('step2').style.display = "none";
+        
+        setTimeout(() => { document.getElementById('step3').scrollIntoView({ behavior: 'smooth', block: 'start' }); }, 150);
+        return;
+      }
+    }
+    spinner.style.display = "none"; searchBtn.disabled = false;
+    statusDiv.style.color = "var(--danger)"; statusDiv.innerText = `ID "${rawId}" not found in this month's report.`;
+  } catch (err) {
+    spinner.style.display = "none"; searchBtn.disabled = false;
+    statusDiv.style.color = "var(--danger)"; statusDiv.innerText = "Error loading data. Please check your internet connection.";
+  }
+}
+
+function applyExtraction(parsed, detection) {
+  const gradeInfo = document.getElementById('gradeInfo');
+  const calcInputs = document.getElementById('calcInputs');
+  const categoryBadge = document.getElementById('categoryBadge');
+  const areaName = getAreaForId(currentSearchId, true);
+  
+  const greetNameEl = document.getElementById('greetName');
+  if (greetNameEl) greetNameEl.textContent = currentResult.name || "User";
+  
+  gradeInfo.style.display = "block";
+  gradeInfo.innerText = `Grade: ${detection.gradeText || "—"} | ${detection.reason} | Area: ${areaName}`;
+  
+  document.getElementById('inpCategory').value = detection.category;
+  document.getElementById('inpOtHours').value = parsed.otHours;
+  document.getElementById('inpHoliday').value = parsed.holiday;
+  document.getElementById('inpNight').value = parsed.night;
+  categoryBadge.className = "badge";
+  categoryBadge.innerText = RATE_TABLE[detection.category].name;
+  calcInputs.style.display = "block"; 
+  recalculate();
+  
+  document.getElementById('dsRegularDays').innerText = parsed.regularDaysCount || parsed.plainDays || 0;
+  document.getElementById('dsHolidayDays').innerText = parsed.holiday;
+  document.getElementById('dsNightDays').innerText = parsed.night;
+  document.getElementById('dsPlainDays').innerText = parsed.plainDays;
+  document.getElementById('daySummaryGrid').style.display = 'grid';
+  
+  document.getElementById('holidayCount').textContent = parsed.holiday;
+  document.getElementById('nightCount').textContent = parsed.night;
+  
+  const remarksBox = document.getElementById('remarksBox');
+  const punchCount = parsed.punchProblems ? parsed.punchProblems.length : 0;
+  if (punchCount > 0) {
+    remarksBox.className = "remarks-box remarks-warn";
+    remarksBox.innerHTML = `Punch missing on ${punchCount} days. Your overtime might be lower due to this.`;
+  } else {
+    remarksBox.className = "remarks-box remarks-ok";
+    remarksBox.innerHTML = `All punches are correct for this month.`;
+  }
+}
+
+function recalculate() {
+  const cat = document.getElementById('inpCategory').value;
+  const otHours = parseFloat(document.getElementById('inpOtHours').value) || 0;
+  const holiday = parseInt(document.getElementById('inpHoliday').value) || 0;
+  const night = parseInt(document.getElementById('inpNight').value) || 0;
+  const r = RATE_TABLE[cat];
+  const otAmount = otHours * r.otRate;
+  let holidayAmount = r.holidayType === "hourly" ? holiday * r.holidayHours * r.otRate : holiday * r.holidayFlat;
+  const nightAmount = night * r.nightRate;
+  const grandTotal = otAmount + holidayAmount + nightAmount;
+  
+  document.getElementById('lblRate').innerText = `৳ ${r.otRate}/hr`;
+  document.getElementById('lblOtAmount').innerText = `৳ ${otAmount.toFixed(2)}`;
+  document.getElementById('lblHolidayAmount').innerText = `৳ ${holidayAmount.toFixed(2)}`;
+  document.getElementById('lblNightAmount').innerText = `৳ ${nightAmount.toFixed(2)}`;
+  document.getElementById('lblGrandTotal').innerText = `৳ ${grandTotal.toFixed(2)}`;
+  document.getElementById('lblRateSub').innerText = r.name;
+  document.getElementById('lblOtFormula').innerText = `${otHours} hr × ৳${r.otRate}`;
+  document.getElementById('lblHolidayFormula').innerText = r.holidayType === "hourly" ? `${holiday} days × 8 hr × ৳${r.otRate}` : `${holiday} days × ৳${r.holidayFlat}`;
+  document.getElementById('lblNightFormula').innerText = `${night} nights × ৳${r.nightRate}`;
+}
+
+function resetAll() {
+  document.body.classList.remove('has-result');
+  ['viewingContextBanner','step2','step3','step4','step5','step7'].forEach(id => { const el = document.getElementById(id); if (el) { el.style.display = "none"; el.classList.remove('show'); } });
+  document.getElementById('status').innerText = "";
+  document.getElementById('employeeId').value = '';
+  currentResult = null;
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function toggleTheme() {
+  const cur = document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light';
+  const next = cur === 'dark' ? 'light' : 'dark';
+  document.documentElement.setAttribute('data-theme', next);
+  localStorage.setItem('renata_theme_v1', next);
+}
+
+/* Leaderboard Logic */
+async function startLeaderboardScan(forceRescan = false) {
+  const month = `${document.getElementById('yearSelect').value}-${document.getElementById('monthSelect').value}`;
+  if (isScanning) return;
+  isScanning = true;
+  document.getElementById('lbInitialCard').style.display = "none";
+  document.getElementById('lbScanCard').style.display = "block";
+  document.getElementById('lbResultCard').style.display = "none";
+  
+  try {
+    const fastList = await fetchMonthPreIndexedData(month);
+    if (fastList && fastList.length > 0) {
+      renderLeaderboardResult(fastList, month);
+      document.getElementById('lbScanCard').style.display = "none";
+      document.getElementById('lbResultCard').style.display = "block";
+      isScanning = false;
+      return;
+    }
+    showToast("No data found for this month.", "warn");
+    document.getElementById('lbScanCard').style.display = "none";
+    document.getElementById('lbInitialCard').style.display = "block";
+    isScanning = false;
+  } catch (e) {
+    showToast("Error loading leaderboard.", "error");
+    document.getElementById('lbScanCard').style.display = "none";
+    document.getElementById('lbInitialCard').style.display = "block";
+    isScanning = false;
+  }
+}
+
+function renderLeaderboardResult(allEmps, month) {
+  const sel = document.getElementById('areaFilter');
+  const areas = [...new Set(allEmps.map(e => e.area))].sort();
+  sel.innerHTML = '<option value="all">All Areas</option>' + areas.map(a => `<option value="${a}">${a}</option>`).join('');
+  
+  const sortedDuty = [...allEmps].sort((a,b) => b.totalDuty - a.totalDuty);
+  const sortedOT = [...allEmps].sort((a,b) => b.otHours - a.otHours);
+  const sortedEarned = [...allEmps].sort((a,b) => b.totalEarned - a.totalEarned);
+  
+  document.getElementById('lbTopDuty').innerHTML = sortedDuty.slice(0, 3).map((e, i) => buildRankItem(e, i, 'duty')).join('');
+  document.getElementById('lbTopOT').innerHTML = sortedOT.slice(0, 3).map((e, i) => buildRankItem(e, i, 'ot')).join('');
+  document.getElementById('lbTopEarned').innerHTML = sortedEarned.slice(0, 3).map((e, i) => buildRankItem(e, i, 'earned')).join('');
+}
+
+function buildRankItem(e, index, type) {
+  let valueStr = "";
+  if (type === 'duty') valueStr = `${e.totalDuty} hrs`;
+  if (type === 'ot') valueStr = `${e.otHours} hrs`;
+  if (type === 'earned') valueStr = `৳ ${(e.totalEarned || 0).toFixed(0)}`;
+  return `<div class="rank-item" onclick="viewEmployee('${e.id}')">
+    <div class="rank-number">${index + 1}</div>
+    <div class="rank-info">
+      <div class="rank-name">${esc(e.name)}</div>
+      <div class="rank-id-line"><span>${esc(e.id)}</span><span class="rank-area">${esc(e.area)}</span></div>
+    </div>
+    <div><div class="rank-value">${valueStr}</div></div>
+  </div>`;
+}
+
+function viewEmployee(id) {
+  document.getElementById('employeeId').value = id;
+  switchPage('search');
+  setTimeout(() => findReport(), 100);
+}
+
+function switchLbTab(tab) {
+  document.querySelectorAll('.lb-tab').forEach(t => t.classList.toggle('active', t.getAttribute('data-lb-tab') === tab));
+  document.querySelectorAll('.lb-panel').forEach(p => p.style.display = p.getAttribute('data-lb-panel') === tab ? 'block' : 'none');
+}
+
+function switchPage(pageName) {
+  document.body.dataset.page = pageName;
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.getElementById('page-' + pageName).classList.add('active');
+  document.querySelectorAll('.bn-item').forEach(item => item.classList.toggle('active', item.getAttribute('data-nav') === pageName));
+  if (pageName === 'admin') initAdminPage();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function backToLeaderboard() { switchPage('leaderboard'); }
+function expandSearchForm() { document.getElementById('searchFormCard').style.display = "block"; document.getElementById('searchSummary').classList.remove('show'); }
+function togglePdfCollapse(bodyId, headerEl) { /* PDF logic hidden for now */ }
+function openRateChartModal() { document.getElementById('rateChartModal').classList.add('open'); }
+function closeRateChartModal() { document.getElementById('rateChartModal').classList.remove('open'); }
+function rateModalBackdropClick(e) { if (e.target.id === 'rateChartModal') closeRateChartModal(); }
+
+function initYearDropdown() {
+  const ySel = document.getElementById('yearSelect');
+  const admYSel = document.getElementById('adminPdfYear');
+  const now = new Date(); const currYear = now.getFullYear();
+  let html = '';
+  for (let y = currYear - 2; y <= currYear + 1; y++) html += `<option value="${y}">${y}</option>`;
+  ySel.innerHTML = html;
+  if(admYSel) admYSel.innerHTML = html;
+  ySel.value = currYear;
+  if(admYSel) admYSel.value = currYear;
+}
+
+/* Admin Logic */
+function getGhToken() { return (localStorage.getItem(ADMIN_GH_TOKEN_KEY) || '').trim(); }
+function setGhToken(t) { if (t) localStorage.setItem(ADMIN_GH_TOKEN_KEY, t.trim()); else localStorage.removeItem(ADMIN_GH_TOKEN_KEY); }
+
+function initAdminPage() {
+  const loginCard = document.getElementById('adminLoginCard');
+  const dashWrap = document.getElementById('adminDashboardWrap');
+  if (sessionStorage.getItem(ADMIN_SESSION_KEY) === '1') {
+    loginCard.style.display = 'none'; dashWrap.style.display = 'block';
+    document.getElementById('adminGhTokenInput').value = getGhToken();
+  } else {
+    loginCard.style.display = 'block'; dashWrap.style.display = 'none';
+  }
+}
+
+function handleAdminLogin() {
+  const inp = document.getElementById('adminPassInput');
+  if (inp.value === DEFAULT_ADMIN_PASS || inp.value === (localStorage.getItem(ADMIN_PASS_KEY) || DEFAULT_ADMIN_PASS)) {
+    sessionStorage.setItem(ADMIN_SESSION_KEY, '1');
+    inp.value = '';
+    initAdminPage();
+  } else {
+    showToast('Wrong password', 'error');
+  }
+}
+function handleAdminLogout() { sessionStorage.removeItem(ADMIN_SESSION_KEY); initAdminPage(); }
+
+function switchAdminTab(tab) {
+  document.getElementById('admTabBtnPdf').classList.toggle('active', tab === 'pdf');
+  document.getElementById('admTabBtnSetup').classList.toggle('active', tab === 'setup');
+  document.getElementById('admPanePdf').classList.toggle('active', tab === 'pdf');
+  document.getElementById('admPaneSetup').classList.toggle('active', tab === 'setup');
+}
+
+async function adminSaveAndTestGhToken() {
+  const raw = document.getElementById('adminGhTokenInput').value.trim();
+  const resEl = document.getElementById('adminGhTokenTestResult');
+  if (!raw) { showToast('Enter key', 'warn'); return; }
+  setGhToken(raw);
+  resEl.textContent = 'Testing...';
+  try {
+    const resp = await fetch(`https://api.github.com/repos/${GITHUB_USERNAME}/${REPO_NAME}`, { headers: { 'Authorization': `token ${raw}` } });
+    if (!resp.ok) throw new Error('Invalid token');
+    resEl.style.color = 'var(--success)';
+    resEl.textContent = 'Connected successfully!';
+    document.getElementById('adminTokenStatusText').textContent = 'Server connected.';
+  } catch (e) {
+    resEl.style.color = 'var(--danger)';
+    resEl.textContent = 'Connection failed.';
+  }
+}
+
+function utf8ToBase64(str) {
+  const bytes = new TextEncoder().encode(str);
+  let binary = '';
+  for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
+  return btoa(binary);
+}
+
+async function githubPutFile(repoPath, base64Content, commitMessage) {
+  const token = getGhToken();
+  if (!token) throw new Error('Token not set');
+  const apiUrl = `https://api.github.com/repos/${GITHUB_USERNAME}/${REPO_NAME}/contents/${repoPath}`;
+  const headers = { 'Authorization': `token ${token}`, 'Accept': 'application/vnd.github.v3+json' };
+  let sha = null;
+  try { const r = await fetch(apiUrl, { headers }); if (r.ok) { const j = await r.json(); sha = j.sha; } } catch (e) {}
+  const body = { message: commitMessage, content: base64Content };
+  if (sha) body.sha = sha;
+  const put = await fetch(apiUrl, { method: 'PUT', headers, body: JSON.stringify(body) });
+  if (!put.ok) throw new Error('Upload failed');
+  return await put.json();
+}
+
+/* Init */
+initYearDropdown();
+</script>
+</body>
+</html>
