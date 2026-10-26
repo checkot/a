@@ -659,9 +659,9 @@ button:disabled { opacity: .55; cursor: not-allowed; }
 /* ============================================================
    CONFIGURATION (CHANGE THESE FOR NEW REPO)
    ============================================================ */
-const GITHUB_USERNAME = "checkot"; // আপনার ইউজারনেম দিন
-const REPO_NAME = "checkot.github.io"; // আপনার নতুন রিপোর নাম দিন (যেমন: renata-test)
-const REMOTE_BASE_URL = "https://checkot.github.io/"; // আপনার নতুন লিংক দিন
+const GITHUB_USERNAME = "checkot"; 
+const REPO_NAME = "a"; 
+const REMOTE_BASE_URL = "https://checkot.github.io/a/"; 
 
 const FALLBACK_LOGO_URI = "data:image/svg+xml;utf8," + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="14" fill="#2563EB"/><path d="M18 46V18h14c6.6 0 11 4 11 9.8 0 4.5-2.6 7.8-6.8 9L44 46h-8l-6.8-8.4H25V46h-7zm7-14.2h6.2c2.9 0 4.8-1.6 4.8-4s-1.9-4-4.8-4H25v8z" fill="#FFFFFF"/></svg>');
 
@@ -745,7 +745,6 @@ function parseText(rawText) {
   let holidayDays = [], nightDays = [], punchProblems = [], plainDays = [], regularDays = [];
   let totalHourLine = false;
 
-  // Try to match the new "Total 22 days ... 181.16 28 ..." format
   const totalMatch = cleanText.match(/TOTAL\s+\d+\s+DAYS?\s+([\d.]+)\s+([\d.]+)\s+([\d.]+)\s+([\d.]+)\s+([\d.]+)\s+([\d.]+)\s+(\d+)/i);
   
   if (totalMatch) {
@@ -755,7 +754,6 @@ function parseText(rawText) {
     totalHourLine = true;
   }
 
-  // Regex for new daily rows
   const rowRegex = /(\d{2}-[A-Z]{3}-\d{4})\s+([A-Z]{3})\s+([\d:]*)\s*([\d:]*)\s+([\d.]+)\s+([\d.]+)\s+([\d.]+)\s+([\d.]+)\s+([\d.]+)\s+([\d.]+)\s+(YES)?/gi;
   let rm;
   const seenDates = new Set();
@@ -779,7 +777,6 @@ function parseText(rawText) {
     if (doDuty > 0 || doExtra > 0 || holDuty > 0 || holExtra > 0) holidayDays.push({ date, doDuty, doExtra, holDuty, holExtra });
     if (isNight) nightDays.push(date);
     
-    // Missing punch check: In or Out is empty
     if (!inTime || !outTime) {
       punchProblems.push({ date, inTime: inTime || "MISSING", outTime: outTime || "MISSING" });
     }
@@ -831,7 +828,6 @@ async function processExcelUpload() {
       const data = new Uint8Array(e.target.result);
       const workbook = XLSX.read(data, { type: 'array' });
       
-      // Try to find the "Work Log" sheet, otherwise use the first one
       const sheetName = workbook.SheetNames.includes('Work Log') ? 'Work Log' : workbook.SheetNames[0];
       const worksheet = workbook.Sheets[sheetName];
       const json = XLSX.utils.sheet_to_json(worksheet, { header: 1, raw: false, defval: "" }); 
@@ -843,7 +839,6 @@ async function processExcelUpload() {
         const row = json[i];
         if (!row || row.length === 0) continue;
         
-        // Header Row Detection (e.g., "RF20850 Mr. Md. Ariful Islam Junior Officer C...")
         if (row[0] && typeof row[0] === 'string' && /^[A-Z]{2}\d{3,6}\s+/i.test(row[0].trim())) {
             if (currentEmp) employees.push(currentEmp);
             
@@ -867,10 +862,9 @@ async function processExcelUpload() {
             continue;
         }
         
-        // Total Row Detection (e.g., "Total 22 days 181.16 28 ...")
         if (row[0] && String(row[0]).trim() === 'Total' && currentEmp) {
-            currentEmp.totalDuty = Number(row[4]) || 0; // Duty (h)
-            currentEmp.otHours = Number(row[5]) || 0; // OT (h)
+            currentEmp.totalDuty = Number(row[4]) || 0; 
+            currentEmp.otHours = Number(row[5]) || 0; 
             const doDuty = Number(row[6]) || 0;
             const doOT = Number(row[7]) || 0;
             const holDuty = Number(row[8]) || 0;
@@ -882,7 +876,6 @@ async function processExcelUpload() {
             continue;
         }
         
-        // Daily Row Detection (Date, Day, In, Out, Duty, OT...)
         if (row[0] && typeof row[0] === 'string' && /^\d{2}-[A-Z]{3}-\d{4}$/i.test(row[0].trim()) && currentEmp) {
             const date = row[0].trim();
             const inTime = String(row[2] || '').trim();
@@ -903,7 +896,6 @@ async function processExcelUpload() {
       
       if (currentEmp) employees.push(currentEmp);
       
-      // Recalculate exact counts based on arrays
       employees.forEach(e => {
           e.holidayCount = e.holidayDays.length;
           e.nightCount = e.nightDays.length;
@@ -1040,7 +1032,6 @@ async function findReport() {
         spinner.style.display = "none"; searchBtn.disabled = false;
         statusDiv.style.color = "var(--success)"; statusDiv.innerText = "Report ready.";
         
-        // Render instant record
         const cat = matchedEmp.category || 'JO';
         const r = RATE_TABLE[cat] || RATE_TABLE.JO;
         const otAmount = matchedEmp.otHours * r.otRate;
@@ -1060,7 +1051,6 @@ async function findReport() {
         ['step3','step4','step5','step7'].forEach(id => { const el = document.getElementById(id); if (el) { el.classList.add('show'); el.style.display = 'block'; } });
         document.body.classList.add('has-result');
         
-        // Hide PDF viewer since this is Excel data (no PDF to render)
         document.getElementById('step2').style.display = "none";
         
         setTimeout(() => { document.getElementById('step3').scrollIntoView({ behavior: 'smooth', block: 'start' }); }, 150);
